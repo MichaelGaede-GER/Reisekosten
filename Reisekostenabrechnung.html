@@ -1,0 +1,1564 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reisekostenabrechnung · DSQV & ESF</title>
+<style>
+:root{
+  --green:#0f5c3f; --green-d:#0a4530; --green-l:#e7f2ec;
+  --blue:#1e4e79; --blue-l:#e8eef6;
+  --ink:#1c2430; --muted:#667085; --line:#e2e6ec; --bg:#f4f6f8;
+  --amber:#b7791f; --amber-l:#fdf3e0; --red:#b42318; --ok:#0f7a4b;
+  --violet:#5b3fa0; --violet-l:#efe9fb;
+  --radius:12px; --shadow:0 1px 3px rgba(16,24,40,.08),0 1px 2px rgba(16,24,40,.06);
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:var(--bg);font-size:14px;line-height:1.45}
+button{font-family:inherit;font-size:14px;cursor:pointer}
+input,select,textarea{font-family:inherit;font-size:14px;color:var(--ink)}
+h1,h2,h3{margin:0 0 .4em}
+a{color:var(--blue)}
+
+/* ---------- App shell ---------- */
+header.app{background:linear-gradient(120deg,var(--green),var(--green-d));color:#fff;padding:14px 22px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:40}
+header.app .logo{font-weight:800;font-size:18px;letter-spacing:.3px;display:flex;align-items:center;gap:10px}
+header.app .logo .dot{width:26px;height:26px;border-radius:50%;background:#c8f0dc;display:flex;align-items:center;justify-content:center;color:var(--green-d);font-size:15px}
+nav.tabs{display:flex;gap:4px;margin-left:auto;flex-wrap:wrap}
+nav.tabs button{background:rgba(255,255,255,.12);border:none;color:#eafff5;padding:8px 14px;border-radius:8px;font-weight:600}
+nav.tabs button.active{background:#fff;color:var(--green-d)}
+main{max-width:1160px;margin:22px auto;padding:0 18px 60px}
+.page{display:none}.page.active{display:block}
+
+/* ---------- Cards / layout ---------- */
+.card{background:#fff;border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px 20px;margin-bottom:18px}
+.card h2{font-size:16px}.card h2 .sub{font-weight:400;color:var(--muted);font-size:13px}
+.row{display:flex;gap:14px;flex-wrap:wrap}
+.col{flex:1;min-width:180px}
+.field{margin-bottom:12px}
+.field label{display:block;font-weight:600;font-size:12.5px;color:#3a4655;margin-bottom:4px}
+.field .hint{font-weight:400;color:var(--muted);font-size:11.5px}
+input[type=text],input[type=number],input[type=date],input[type=time],input[type=email],select,textarea{
+  width:100%;padding:8px 10px;border:1px solid #d3d9e2;border-radius:8px;background:#fff}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--green-l);border-color:var(--green)}
+textarea{resize:vertical;min-height:60px}
+.inline{display:flex;align-items:center;gap:8px}
+.chk{display:inline-flex;align-items:center;gap:5px;font-weight:500;font-size:12.5px;background:#f7f9fb;border:1px solid #dde3ea;padding:5px 9px;border-radius:7px;cursor:pointer}
+.chk input{width:auto;margin:0}
+
+/* ---------- Buttons ---------- */
+.btn{border:1px solid #d3d9e2;background:#fff;padding:9px 15px;border-radius:9px;font-weight:600;color:var(--ink);display:inline-flex;align-items:center;gap:7px}
+.btn:hover{background:#f6f8fa}
+.btn.primary{background:var(--green);border-color:var(--green);color:#fff}
+.btn.primary:hover{background:var(--green-d)}
+.btn.blue{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--muted)}
+.btn.sm{padding:6px 10px;font-size:12.5px}
+.btn.danger{color:var(--red);border-color:#f0c4bf}.btn.danger:hover{background:#fdeeec}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+.toolbar .spacer{flex:1}
+
+/* ---------- Tables ---------- */
+table.list{width:100%;border-collapse:collapse;background:#fff}
+table.list th,table.list td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);font-size:13px}
+table.list th{background:#fafbfc;color:var(--muted);font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:.4px}
+table.list tr:hover td{background:#fafcfd}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700}
+.badge.dsqv{background:var(--green-l);color:var(--green-d)}
+.badge.esf{background:var(--blue-l);color:var(--blue)}
+.badge.ausland{background:var(--amber-l);color:var(--amber)}
+.badge.ansch{background:var(--violet-l);color:var(--violet)}
+.pill{display:inline-block;width:11px;height:11px;border-radius:50%;vertical-align:middle}
+.pill.on{background:var(--ok)}.pill.off{background:#d0d5dd}
+.pill.clk{cursor:pointer;transition:transform .08s}.pill.clk:hover{transform:scale(1.35)}
+.money{font-variant-numeric:tabular-nums;font-weight:600}
+.right{text-align:right!important}
+.muted{color:var(--muted)}
+.empty{text-align:center;color:var(--muted);padding:44px 10px}
+
+/* ---------- Stats ---------- */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
+.stat{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow)}
+.stat .k{color:var(--muted);font-size:12px;font-weight:600}
+.stat .v{font-size:22px;font-weight:800;margin-top:2px;font-variant-numeric:tabular-nums}
+@media(max-width:800px){.stats{grid-template-columns:repeat(2,1fr)}}
+
+/* ---------- Section headers in form ---------- */
+.sec{border-left:4px solid var(--green);padding:6px 0 6px 12px;margin:22px 0 12px;font-weight:800;font-size:14.5px;color:var(--green-d)}
+.sec.blue{border-color:var(--blue);color:var(--blue)}
+.sec.violet{border-color:var(--violet);color:var(--violet)}
+.calcbox{background:var(--green-l);border:1px solid #cfe6da;border-radius:10px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;font-weight:700}
+.calcbox .amt{font-size:18px}
+
+/* ---------- Modal ---------- */
+.overlay{position:fixed;inset:0;background:rgba(16,24,40,.5);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+.overlay.show{display:flex}
+.modal{background:#fff;border-radius:16px;max-width:560px;width:100%;padding:26px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.modal h2{font-size:19px}
+.choose{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-top:18px}
+.choose .opt{border:2px solid var(--line);border-radius:14px;padding:20px;text-align:center;cursor:pointer;transition:.15s}
+.choose .opt:hover{border-color:var(--green);background:var(--green-l);transform:translateY(-2px)}
+.choose .opt.esf:hover{border-color:var(--blue);background:var(--blue-l)}
+.choose .opt.ansch:hover{border-color:var(--violet);background:var(--violet-l)}
+.choose .opt .big{font-size:30px;margin-bottom:8px}
+.choose .opt .t{font-weight:800;font-size:16px}
+.choose .opt .d{color:var(--muted);font-size:12px;margin-top:5px}
+.subchoose{display:flex;gap:10px;margin-top:16px}
+.subchoose .opt{flex:1;border:2px solid var(--line);border-radius:12px;padding:14px;text-align:center;cursor:pointer;font-weight:700}
+.subchoose .opt:hover{border-color:var(--amber);background:var(--amber-l)}
+
+/* ---------- Location editor rows ---------- */
+.locrow{display:grid;grid-template-columns:1fr 110px 110px 40px;gap:8px;align-items:center;margin-bottom:6px}
+.locrow .kmg{color:var(--muted);font-size:12px;text-align:center}
+.reasonrow{display:flex;gap:8px;margin-bottom:6px}
+.reasonrow input{flex:1}
+.tag{display:inline-block;background:#eef2f6;border-radius:6px;padding:2px 8px;font-size:11px;margin:2px}
+
+/* ---------- Print form ---------- */
+#printArea{display:none}
+.formsheet{background:#fff;color:#000;font-size:11px;line-height:1.3}
+.formsheet .fh{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #000;padding-bottom:6px;margin-bottom:8px}
+.formsheet h1{font-size:15px;margin:0}
+.formsheet .small{font-size:9.5px;color:#333}
+.formsheet table{width:100%;border-collapse:collapse}
+.formsheet .kv td{padding:3px 4px;vertical-align:top}
+.formsheet .kv td.lab{width:190px;font-weight:600}
+.formsheet .box{border:1px solid #000}
+.formsheet .stbl td,.formsheet .stbl th{border:1px solid #999;padding:3px 6px}
+.formsheet .stbl th{background:#eee;text-align:left;font-size:10px}
+.formsheet .rt{text-align:right;font-variant-numeric:tabular-nums}
+.formsheet .secttl{font-weight:800;background:#e8e8e8;padding:4px 6px;margin-top:8px;border:1px solid #999}
+.formsheet .sumline{font-weight:800}
+.formsheet .sign{margin-top:40px;display:flex;justify-content:space-between}
+.formsheet .sign .l{position:relative;border-top:1px solid #000;padding-top:3px;width:45%;text-align:center;font-size:9.5px}
+.formsheet .sigimg{position:absolute;left:50%;transform:translateX(-50%);bottom:100%;max-height:48px;max-width:85%;margin-bottom:2px}
+.formsheet .fhlogo{max-height:56px;max-width:150px;object-fit:contain;margin-right:12px}
+.formsheet .fh .lft{display:flex;align-items:center}
+.pagebreak{page-break-before:always}
+.belegsheet{background:#fff;color:#000}
+.belegsheet .belegcap{font-size:11px;font-weight:700;margin-bottom:6px;border-bottom:1px solid #999;padding-bottom:3px}
+.belegsheet .belegfull{display:block;margin:0 auto;max-width:100%;max-height:250mm;object-fit:contain}
+.bewsheet{background:#fff;color:#000;font-size:12px;line-height:1.35}
+.bewsheet .small{font-size:9.5px;color:#444}
+.bewtbl{width:100%;border-collapse:collapse;border:2px solid #000}
+.bewtbl td{border:1px solid #000;padding:9px 11px;vertical-align:top}
+.bewtbl .htitle{font-size:18px;font-weight:800;margin:0 0 5px}
+.bewtbl .lbl{font-size:12px;color:#000}
+.bewtbl .val{font-weight:800;margin-top:8px}
+.bewsig{position:relative}
+.bewsig img{max-height:58px;max-width:88%;position:absolute;left:8px;bottom:6px}
+
+@media print{
+  body{background:#fff}
+  header.app,nav.tabs,main,.overlay{display:none!important}
+  #printArea{display:block!important}
+  @page{size:A4;margin:14mm}
+}
+.notice{background:var(--amber-l);border:1px solid #f0dcae;color:#7a5a12;border-radius:10px;padding:10px 14px;font-size:12.5px;margin-bottom:14px}
+.imgbox{border:1px dashed #cfd6dd;border-radius:8px;min-height:74px;display:flex;align-items:center;justify-content:center;padding:8px;background:#fafbfc}
+.imgbox img{max-height:74px;max-width:100%;object-fit:contain}
+.stat .s{color:var(--muted);font-size:11.5px;margin-top:3px}
+.gt{width:100%;border-collapse:collapse;font-size:13.5px}
+.gt th,.gt td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:right;font-variant-numeric:tabular-nums}
+.gt th:first-child,.gt td:first-child{text-align:left;font-variant-numeric:normal}
+.gt thead th{color:var(--muted);font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:.4px}
+.gt tfoot td{font-weight:800;border-top:2px solid var(--line);border-bottom:none}
+.gt .amber{color:var(--amber)}.gt .ok{color:var(--ok)}
+#authGate{position:fixed;inset:0;z-index:500;background:linear-gradient(140deg,var(--green-l),#eef2f6);display:flex;align-items:center;justify-content:center;padding:20px}
+body.authed #authGate{display:none}
+body:not(.authed) header.app,body:not(.authed) main{display:none}
+.authbox{background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.15);padding:26px 24px;width:100%;max-width:360px}
+.authbox h1{margin:0 0 2px;font-size:22px}
+.authbox .err{background:#fdeceb;border:1px solid #f3c0bb;color:var(--red);border-radius:8px;padding:8px 10px;font-size:12.5px;margin:8px 0}
+.belegrow{display:flex;align-items:center;gap:10px;padding:8px;border:1px solid var(--line);border-radius:8px;margin-bottom:6px}
+.belthumb{width:46px;height:46px;object-fit:cover;border-radius:6px;flex:none;background:#f0f2f4;border:1px solid var(--line)}
+.belthumb.pdf{display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:var(--red)}
+</style>
+</head>
+<body>
+
+<div id="authGate"><div class="authbox"><h1>🎾 Reisekosten</h1><p class="muted">Bitte anmelden</p></div></div>
+
+<header class="app">
+  <div class="logo"><span class="dot">🎾</span> Reisekosten <span style="opacity:.6;font-weight:500">· DSQV & ESF</span></div>
+  <nav class="tabs">
+    <button data-tab="dashboard" class="active">Übersicht</button>
+    <button data-tab="form" id="tabFormBtn" style="display:none">Bearbeiten</button>
+    <button data-tab="statistik">Statistik</button>
+    <button data-tab="settings">Einstellungen</button>
+  </nav>
+  <div style="margin-left:auto;display:flex;align-items:center;gap:12px">
+    <span id="syncState" style="font-size:12px;font-weight:700;white-space:nowrap;color:#eafff4"></span>
+    <button onclick="doLogout()" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.5);color:#fff;padding:6px 12px;border-radius:8px;font-size:12.5px;font-weight:600;cursor:pointer">Abmelden</button>
+  </div>
+</header>
+
+<main>
+  <!-- ============ DASHBOARD ============ -->
+  <section class="page active" id="page-dashboard">
+    <div class="stats" id="stats"></div>
+    <div class="toolbar">
+      <button class="btn primary" onclick="startNew()">＋ Neue Abrechnung</button>
+      <div class="spacer"></div>
+      <select id="fltVerband" onchange="renderList()" style="width:auto">
+        <option value="">Alle Verbände</option>
+        <option value="DSQV">DSQV</option>
+        <option value="ESF">ESF</option>
+        <option value="ANSCH">Anschaffungen</option>
+      </select>
+      <select id="fltJahr" onchange="renderList()" style="width:auto"></select>
+      <button class="btn sm" onclick="exportCSV()">CSV</button>
+    </div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <table class="list" id="listTbl">
+        <thead><tr>
+          <th>Beleg</th><th>Verband</th><th>Datum</th><th>Zweck / Ort</th>
+          <th class="right">Betrag</th><th>Gesendet</th><th>Erhalten</th><th></th>
+        </tr></thead>
+        <tbody id="listBody"></tbody>
+      </table>
+      <div class="empty" id="listEmpty" style="display:none">Noch keine Abrechnungen. Lege oben deine erste an.</div>
+    </div>
+  </section>
+
+  <!-- ============ FORM (rendered by JS) ============ -->
+  <section class="page" id="page-form"></section>
+
+  <!-- ============ STATISTIK ============ -->
+  <section class="page" id="page-statistik"></section>
+
+  <!-- ============ SETTINGS ============ -->
+  <section class="page" id="page-settings"></section>
+</main>
+
+<!-- ============ MODALS ============ -->
+<div class="overlay" id="chooseOverlay">
+  <div class="modal">
+    <h2>Neue Abrechnung</h2>
+    <p class="muted">Was möchtest du abrechnen?</p>
+    <div class="choose">
+      <div class="opt" onclick="chooseVerband('DSQV')">
+        <div class="big">🇩🇪</div><div class="t">DSQV</div>
+        <div class="d">Deutscher Squash Verband<br>Erstattungsformular</div>
+      </div>
+      <div class="opt esf" onclick="chooseVerband('ESF')">
+        <div class="big">🇪🇺</div><div class="t">ESF</div>
+        <div class="d">European Squash Federation<br>Expenses Claim Form</div>
+      </div>
+      <div class="opt ansch" onclick="chooseVerband('ANSCH')">
+        <div class="big">📦</div><div class="t">Anschaffungen</div>
+        <div class="d">Equipment / Auslagen<br>für den Verband</div>
+      </div>
+    </div>
+    <div id="dsqvSub" style="display:none">
+      <p class="muted" style="margin:18px 0 0">DSQV – Inland oder Ausland?</p>
+      <div class="subchoose">
+        <div class="opt" onclick="chooseDsqvTyp('inland')">🏠 Inland</div>
+        <div class="opt" onclick="chooseDsqvTyp('ausland')">✈️ Ausland</div>
+      </div>
+    </div>
+    <div style="text-align:right;margin-top:18px"><button class="btn ghost" onclick="closeModal()">Abbrechen</button></div>
+  </div>
+</div>
+
+<div id="printArea"></div>
+
+<script>
+"use strict";
+if (typeof structuredClone !== "function") { window.structuredClone = function(o){ return JSON.parse(JSON.stringify(o)); }; }
+/* =======================================================================
+   Reisekostenabrechnung – lokale App (DSQV + ESF)
+   Speicherung: localStorage (Browser-Datenbank), voll offline
+   ======================================================================= */
+const DB_KEY = "rka_db_v1";
+
+/* =======================================================================
+   SUPABASE – Login & Cloud-Sync
+   >>> HIER deine Projektdaten eintragen (Supabase → Project Settings → API):
+   ======================================================================= */
+const SUPABASE_URL      = "https://DEINPROJEKT.supabase.co";
+const SUPABASE_ANON_KEY = "DEIN_ANON_KEY";
+
+function sbConfigured(){ return /^https:\/\/.+\.supabase\.co/.test(SUPABASE_URL) && SUPABASE_ANON_KEY.length>20 && SUPABASE_URL.indexOf("DEINPROJEKT")<0; }
+
+let AUTH=null;
+function saveAuth(d){ AUTH={access_token:d.access_token, refresh_token:d.refresh_token, user:d.user, expires_at:Date.now()+((d.expires_in||3600)*1000)}; try{localStorage.setItem("rka_auth",JSON.stringify(AUTH));}catch(_){} }
+function clearAuth(){ AUTH=null; try{localStorage.removeItem("rka_auth");}catch(_){} }
+function bootAuth(){ try{ AUTH=JSON.parse(localStorage.getItem("rka_auth"))||null; }catch(_){ AUTH=null; } }
+
+async function sbAuthReq(path, body){
+  const r=await fetch(SUPABASE_URL+"/auth/v1/"+path,{method:"POST",headers:{"Content-Type":"application/json","apikey":SUPABASE_ANON_KEY},body:JSON.stringify(body)});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(d.error_description||d.msg||d.error||d.message||("Fehler "+r.status));
+  return d;
+}
+async function ensureToken(){
+  if(!AUTH) throw new Error("nicht angemeldet");
+  if(Date.now() > (AUTH.expires_at||0)-60000){
+    const d=await sbAuthReq("token?grant_type=refresh_token",{refresh_token:AUTH.refresh_token});
+    saveAuth(d);
+  }
+}
+async function sbRest(method,q,body,extra){
+  await ensureToken();
+  const r=await fetch(SUPABASE_URL+"/rest/v1/"+q,{method,headers:Object.assign({"Content-Type":"application/json","apikey":SUPABASE_ANON_KEY,"Authorization":"Bearer "+AUTH.access_token},extra||{}),body:body?JSON.stringify(body):undefined});
+  if(!r.ok){ const t=await r.text().catch(()=>""); throw new Error("REST "+r.status+" "+t); }
+  return method==="GET"? r.json() : null;
+}
+
+async function doLogin(email,password){ const d=await sbAuthReq("token?grant_type=password",{email,password}); saveAuth(d); await startApp(); }
+async function doRegister(email,password){ const d=await sbAuthReq("signup",{email,password}); if(d.access_token){ saveAuth(d); await startApp(); return "ok"; } return "confirm"; }
+function doLogout(){ flushPush(); clearAuth(); DB=null; document.body.classList.remove("authed"); showGate(); }
+
+let pushTimer=null, pushPending=false;
+function schedulePush(){ if(!sbConfigured()||!AUTH) return; pushPending=true; clearTimeout(pushTimer); pushTimer=setTimeout(flushPush,1200); }
+async function flushPush(){
+  if(!sbConfigured()||!AUTH||!pushPending) return;
+  pushPending=false; clearTimeout(pushTimer); setSync("sync");
+  try{ await sbRest("POST","app_data",[{user_id:AUTH.user.id,data:DB,updated_at:new Date().toISOString()}],{"Prefer":"resolution=merge-duplicates"}); setSync("ok"); }
+  catch(e){ pushPending=true; setSync("err"); console.warn("sync push failed",e); }
+}
+async function loadFromCloud(){
+  const rows=await sbRest("GET","app_data?user_id=eq."+AUTH.user.id+"&select=data");
+  if(rows&&rows.length&&rows[0].data&&rows[0].data.settings){ DB=rows[0].data; migrateDB(); cacheLocal(); }
+  else { loadLocalOrDefaults(); pushPending=true; await flushPush(); }
+}
+async function startApp(){
+  document.body.classList.add("authed"); showApp(); setSync("sync");
+  try{ await loadFromCloud(); setSync("ok"); }
+  catch(e){ loadLocalOrDefaults(); setSync("off"); if(typeof toast==="function") toast("Offline – lokale Daten geladen"); }
+  renderDashboard(); showTab("dashboard");
+}
+
+/* ---------- Auth-UI (Login-Overlay) ---------- */
+function showGate(){ document.body.classList.remove("authed"); const g=document.getElementById("authGate"); if(g) g.style.display="flex"; renderGate(); }
+function showApp(){ const g=document.getElementById("authGate"); if(g) g.style.display="none"; }
+function av(id){ const el=document.getElementById(id); return el?el.value.trim():""; }
+function gateErr(m){ const e=document.getElementById("authErr"); if(e){ e.textContent=m; e.style.display="block"; } }
+function renderGate(){
+  const el=document.getElementById("authGate"); if(!el) return;
+  if(!sbConfigured()){
+    el.innerHTML=`<div class="authbox"><h1>🎾 Reisekosten</h1><div class="err">Noch nicht eingerichtet</div>
+      <p class="muted" style="font-size:13px">Bitte oben in der Datei <b>SUPABASE_URL</b> und <b>SUPABASE_ANON_KEY</b> eintragen (Supabase → Project Settings → API), speichern und die Datei erneut öffnen. Das SQL für die Tabelle steht in der Anleitung.</p></div>`;
+    return;
+  }
+  el.innerHTML=`<div class="authbox">
+    <h1>🎾 Reisekosten</h1><p class="muted" style="margin-top:2px">Bitte anmelden</p>
+    <div class="field"><label>E-Mail</label><input id="authEmail" type="email" autocomplete="username"></div>
+    <div class="field"><label>Passwort</label><input id="authPass" type="password" autocomplete="current-password"></div>
+    <div id="authErr" class="err" style="display:none"></div>
+    <div style="display:flex;gap:8px;margin-top:6px">
+      <button class="btn primary" style="flex:1" onclick="gateLogin()">Anmelden</button>
+      <button class="btn" onclick="gateRegister()">Registrieren</button>
+    </div>
+    <p class="muted" style="font-size:11.5px;margin:12px 0 0">Nur dein Konto sieht deine Daten. Auf einem neuen Gerät: Datei öffnen, einmal anmelden – alle Belege sind sofort da.</p>
+  </div>`;
+  const p=document.getElementById("authPass"); if(p) p.addEventListener("keydown",e=>{ if(e.key==="Enter") gateLogin(); });
+}
+async function gateLogin(){ const em=av("authEmail"),pw=av("authPass"); if(!em||!pw){gateErr("Bitte E-Mail und Passwort eingeben.");return;} try{ await doLogin(em,pw); }catch(e){ gateErr("Anmeldung fehlgeschlagen: "+e.message); } }
+async function gateRegister(){ const em=av("authEmail"),pw=av("authPass"); if(!em||!pw){gateErr("Bitte E-Mail und Passwort eingeben.");return;} try{ const r=await doRegister(em,pw); if(r==="confirm") gateErr("Fast fertig: Bestätige die Registrierung über den Link in deiner E-Mail und melde dich dann an."); }catch(e){ gateErr("Registrierung fehlgeschlagen: "+e.message); } }
+
+function setSync(s){ const el=document.getElementById("syncState"); if(!el) return;
+  const map={ok:["● gespeichert","#eafff4"],sync:["… synchronisiere","#eafff4"],err:["● nicht gesichert","#ffd9d4"],off:["● offline","#ffe9c7"]};
+  const m=map[s]||map.ok; el.textContent=m[0]; el.style.color=m[1];
+}
+if(typeof document!=="undefined"){ document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="hidden") flushPush(); }); }
+const EUR = n => (isFinite(n)?n:0).toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})+" €";
+const num = v => { const n=parseFloat(String(v).replace(",",".")); return isFinite(n)?n:0; };
+const esc = s => String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const todayISO = () => new Date().toISOString().slice(0,10);
+const deDate = iso => iso ? iso.split("-").reverse().join(".") : "";
+
+/* ---------- Default / seed data ---------- */
+const SEED_LOCATIONS = [
+ ["Sportpark Nord, Andernacher Str. 15, 90411 Nürnberg",209],
+ ["Sportwerk, Hagenbeckstraße 124A, 22527 Hamburg",506],
+ ["Airport Squash & Fitness Berlin, Rue Charles Calmette 11D, 13405 Berlin",547],
+ ["Aramis Sportwelt, Siedlerstraße 40, 71126 Gäufelden",259],
+ ["BallsportARENA Dresden, Weißeritzstr. 4, 01067 Dresden",462],
+ ["ALEX Gaststätten GmbH, Zeil 106, 60313 Frankfurt am Main",0],
+ ["KAIFU-LODGE, Bundesstraße 107, 20144 Hamburg",505],
+ ["Squashtime, Vijfkamplaan 22, 5624 EB Eindhoven, Niederlande",383],
+ ["Sportschule Wedau, Friedrich-Alfred-Allee 15, 47055 Duisburg",281],
+ ["Squash Dream, 22 Rue Lafayette, 54320 Maxéville, Frankreich",335],
+ ["Tennis- und Squash Center Dreieich GmbH, Otto-Hahn-Straße 39, 63303 Dreieich",43],
+ ["Kongresshaus Baden-Baden, Augustapl. 10, 76530 Baden-Baden",213],
+ ["Fun Point Squash Club, Dieselstraße 2, 70839 Gerlingen",220],
+ ["Fitness- und Squash Center Achim-Baden, Finienweg 17, 28832 Achim",448],
+ ["Sportpark Schollbach, Schollbach 17, 85435 Erding",371],
+ ["Mall of Tripla, Fredikanterassi 1, 00520 Helsinki, Finnland",0],
+ ["Ofit GmbH, Siemensstraße 10, 73760 Ostfildern",249],
+ ["Ahorn-Sportpark, Ahornallee 20, 33106 Paderborn",276],
+ ["Squash-Center Königsbrunn, Hunnenstraße 31, 86343 Königsbrunn",357],
+ ["Pink Power Böblingen, Röhrer Weg 2, 71032 Böblingen",239],
+ ["KAP Europa, Osloer Str. 5, 60327 Frankfurt am Main",44.5],
+ ["Venice - Sport- und Freizeitcenter, Eutiner Str. 43, 23795 Klein Rönnau",554],
+ ["Squash Arena Uster, Hallenbadweg 2, 8610 Uster, Schweiz",440],
+ ["STADTHOTEL am Römerturm, Sankt-Apern-Straße 32, 50667 Köln",232],
+ ["Hong Kong Football Club, Hong Kong, China",36.5],
+ ["SPORTS4You!, Drygalski-Allee 41, 81477 München",373],
+ ["Hasta la Vista, ul. Góralska 5, 53-610 Wrocław, Polen",48.8],
+ ["Squash & Badminton Güdingen GmbH, Neumüher Weg 28, 66130 Saarbrücken",217],
+ ["Chengdu, China",49.5],
+ ["Hotel NH Oberhausen, Düppelstraße 2, 46045 Oberhausen",290],
+ ["WeCare Squash, Industriestrasse 11, 82110 Germering",383],
+ ["Kongresshotel Potsdam, Am Luftschiffhafen 1, 14471 Potsdam",508],
+ ["Alte Post Alzenau, Burgstraße 9, 63755 Alzenau",0],
+ ["Frans Otten Stadion Amsterdam, Ijsbaanpad 43, 1076 CV Amsterdam, Niederlande",475],
+ ["Antiquarium der Residenz München, Residenzstr. 1, 80333 München",378],
+ ["Rotes Rathaus Berlin, Rathausstraße 15, 10178 Berlin",542],
+ ["Neues Schloss Schleißheim, Max-Emanuel-Platz, 85764 Oberschleißheim",366],
+].map((l,i)=>({id:"loc"+i, name:l[0], km:l[1]}));
+
+const DEFAULTS = {
+  settings:{
+    stamm:{ name:"Gäde, Michael", strasse:"Hemsbacher Straße 38, 63755 Alzenau",
+            iban:"DE86 1001 0178 1068 3107 48", bic:"", kennzeichen:"BO-GX 6351",
+            heimatort:"Alzenau", email:"michael.gaede@europeansquash.com" },
+    saetze:{ kmSatz:0.30, anreise:14, volltag:28, abreise:14,
+             fruehstueck:5.60, mittag:11.20, abend:11.20, esfCarSatz:0.32 },
+    dsqvHeader:{ verband:"Deutscher Squash Verband e.V.",
+                 adresse:"DSQV, Amselweg 10, 46395 Bocholt   IBAN: DE25428600030248629400   BIC: BOVBDE3MXXX",
+                 version:"Erstattungsformular (Version ab 1.04.2026)" },
+    esfHeader:{ retour:"Please return to Marcel Borst, Operations Manager, European Squash Federation, Solihull Arden Club, Sharmans Cross Road, Solihull, B91 1RG, UK. Email - info@europeansquash.com. Tel: +(44) 121 725 6527" },
+    images:{ logoDSQV:"", logoESF:"", signatur:"" },
+    begruendungen:{
+      reisezweck:["unmittelbarer Bezug zur Verbandsaufgabe","Erforderlichkeit der persönlichen Anwesenheit","Vertretung des Verbandes nach außen","Sicherstellung von Ordnungsmäßigkeit, Aufsicht, Steuerung oder Entscheidung","kein gleichwertiger Ersatz durch digitale Teilnahme"],
+      hotel:["Keine günstigere, zumutbare Unterkunft verfügbar.","Offizielles Veranstaltungshotel / Tagungshotel.","Veranstaltungsbedingtes erhöhtes Preisniveau am Ort.","Früher Dienstbeginn / spätes Veranstaltungsende.","Ortsnahe Unterbringung zur Sicherstellung des Dienstgeschäfts erforderlich.","Weiter entfernte Unterkunft insgesamt nicht wirtschaftlicher.","Keine Hotelkosten"],
+      park:["Dienstlich veranlasste PKW-Anreise.","Notwendige Reisenebenkosten im Zusammenhang mit der Dienstreise.","ÖPNV nicht zumutbar / nicht praktikabel.","Transport dienstlicher Unterlagen / Materialien erforderlich.","Pünktliche Wahrnehmung des Dienstgeschäfts nur per PKW sichergestellt.","Parken am Veranstaltungsort dienstlich erforderlich.","PKW insgesamt wirtschaftlicher als Alternativen."]
+    }
+  },
+  locations: SEED_LOCATIONS,
+  entries: [],
+  counters:{ DSQV:1, ESF:1, ANSCH:1 }
+};
+
+/* ---------- DB load / save ---------- */
+let DB;
+function dbKey(){ return "rka_db_"+((AUTH&&AUTH.user&&AUTH.user.id)||"local"); }
+function migrateDB(){
+  DB.settings = Object.assign(structuredClone(DEFAULTS.settings), DB.settings||{});
+  DB.settings.images = Object.assign({logoDSQV:"",logoESF:"",signatur:""}, DB.settings.images||{});
+  DB.counters = Object.assign({DSQV:1,ESF:1,ANSCH:1}, DB.counters||{});
+  DB.locations = DB.locations||[];
+  DB.entries = DB.entries||[];
+  DB.entries.forEach(e=>{
+    if(!Array.isArray(e.belege)) e.belege=[];
+    if(e.verband==="ANSCH" && !Array.isArray(e.items)) e.items=[];
+    if(e.verband==="ESF"){
+      if(e.train2){ if((!e.train1||!num(e.train1.orig)) && num(e.train2.orig)) e.train1=e.train2; delete e.train2; }
+      if(!e.train1) e.train1={orig:0,rate:1,receipt:false};
+    }
+  });
+  // leere Belege entfernen
+  DB.entries = DB.entries.filter(e=>!isEmptyDraft(e));
+  // einmalige Umstellung auf monatsbasierte Belegnummern
+  if(DB.numScheme!=="monthly-v1"){
+    DB.entries.forEach(e=>{ if(!e.belegMonat) e.belegMonat=((e.datum||todayISO())+"").slice(0,7); if(!e.jahr) e.jahr=+e.belegMonat.slice(0,4); });
+    const groups={};
+    DB.entries.filter(hasContent).forEach(e=>{ const b=bucketOf(e); (groups[b]=groups[b]||[]).push(e); });
+    Object.values(groups).forEach(arr=>{ arr.sort((a,b)=>(a.belegNr-b.belegNr)||(a.id<b.id?-1:1)); arr.forEach((e,i)=>e.belegNr=i+1); });
+    DB.numScheme="monthly-v1";
+  }
+}
+function loadLocalOrDefaults(){
+  let raw=null; try{ raw=localStorage.getItem(dbKey())||localStorage.getItem(DB_KEY); }catch(_){}
+  try{ DB = raw?JSON.parse(raw):null; }catch(_){ DB=null; }
+  if(!DB) DB = structuredClone(DEFAULTS);
+  migrateDB();
+}
+function cacheLocal(){ try{ localStorage.setItem(dbKey(), JSON.stringify(DB)); return true; }catch(err){ console.error("cache failed:",err); return false; } }
+function saveDB(){ const ok=cacheLocal(); schedulePush(); return ok; }
+
+/* ---------- Tabs ---------- */
+function showTab(tab){
+  document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+  document.getElementById("page-"+tab).classList.add("active");
+  document.querySelectorAll("nav.tabs button").forEach(b=>b.classList.toggle("active",b.dataset.tab===tab));
+  window.scrollTo(0,0);
+}
+document.querySelectorAll("nav.tabs button").forEach(b=>{
+  if(b.dataset.tab) b.onclick=()=>{ if(b.dataset.tab!=="form") cleanupCurrentEntry(); if(b.dataset.tab==="settings") renderSettings(); if(b.dataset.tab==="dashboard") renderDashboard(); if(b.dataset.tab==="statistik") renderStatistik(); showTab(b.dataset.tab); };
+});
+
+/* =======================================================================
+   DASHBOARD
+   ======================================================================= */
+function renderDashboard(){ buildYearFilter(); renderStats(); renderList(); }
+function buildYearFilter(){
+  const sel=document.getElementById("fltJahr"); const cur=sel.value;
+  const years=[...new Set(DB.entries.map(e=>e.jahr))].sort().reverse();
+  sel.innerHTML='<option value="">Alle Jahre</option>'+years.map(y=>`<option>${y}</option>`).join("");
+  sel.value=cur;
+}
+function renderStats(){
+  const es=DB.entries;
+  const sum = es.reduce((a,e)=>a+entryTotal(e),0);
+  const offen = es.filter(e=>!e.erhalten).reduce((a,e)=>a+entryTotal(e),0);
+  const dsqv = es.filter(e=>e.verband==="DSQV").length;
+  const esf = es.filter(e=>e.verband==="ESF").length;
+  const ansch = es.filter(e=>e.verband==="ANSCH").length;
+  document.getElementById("stats").innerHTML=`
+    <div class="stat"><div class="k">Abrechnungen gesamt</div><div class="v">${es.length}</div></div>
+    <div class="stat"><div class="k">Summe gesamt</div><div class="v">${EUR(sum)}</div></div>
+    <div class="stat"><div class="k">Noch offen</div><div class="v" style="color:var(--amber)">${EUR(offen)}</div></div>
+    <div class="stat"><div class="k">DSQV / ESF / Ansch.</div><div class="v">${dsqv} / ${esf} / ${ansch}</div></div>`;
+}
+function renderList(){
+  const fv=document.getElementById("fltVerband").value;
+  const fy=document.getElementById("fltJahr").value;
+  let rows=DB.entries.filter(e=>(!fv||e.verband===fv)&&(!fy||String(e.jahr)===fy));
+  rows.sort((a,b)=>(b.belegNr)-(a.belegNr));
+  const body=document.getElementById("listBody");
+  document.getElementById("listEmpty").style.display=rows.length?"none":"block";
+  body.innerHTML=rows.map(e=>{
+    const dat = e.verband==="DSQV" ? deDate(e.abfahrtDatum||e.datum) : e.verband==="ESF" ? deDate(e.dateFrom||e.datum) : deDate(e.datum);
+    const zw = e.verband==="ESF" ? (e.purpose||"—") : (e.zweck||"—");
+    const ort = e.verband==="DSQV" ? (e.ort||"") : e.verband==="ESF" ? (e.venue||"") : (e.fuerVerband?("für "+e.fuerVerband):"");
+    const vb = e.verband==="DSQV"
+        ? `<span class="badge dsqv">DSQV</span>${e.typ==="ausland"?' <span class="badge ausland">Ausland</span>':''}`
+        : e.verband==="ESF" ? `<span class="badge esf">ESF</span>` : `<span class="badge ansch">Anschaffung</span>`;
+    return `<tr>
+      <td><b>${belegRef(e)}</b></td>
+      <td>${vb}</td>
+      <td>${dat||'<span class="muted">—</span>'}</td>
+      <td>${esc(zw)}<div class="muted" style="font-size:11.5px">${esc(ort).slice(0,52)}</div></td>
+      <td class="right money">${EUR(entryTotal(e))}</td>
+      <td><span class="pill clk ${e.gesendet?'on':'off'}" title="Als gesendet markieren" onclick="toggleGesendet('${e.id}')"></span></td>
+      <td><span class="pill clk ${e.erhalten?'on':'off'}" title="Geldeingang als erhalten markieren" onclick="toggleErhalten('${e.id}')"></span>${e.erhalten&&e.erhaltenAm?`<div class="muted" style="font-size:10.5px">${deDate(e.erhaltenAm)}</div>`:''}</td>
+      <td class="right" style="white-space:nowrap">
+        <button class="btn sm" onclick="openEntry('${e.id}')">Öffnen</button>
+        <button class="btn sm" onclick="printEntry('${e.id}')">Drucken</button>
+        <button class="btn sm danger" onclick="delEntry('${e.id}')">🗑</button>
+      </td></tr>`;
+  }).join("");
+}
+function entryTotal(e){ return e.verband==="DSQV"?calcDSQV(e).gesamt : e.verband==="ANSCH"?calcAnsch(e).total : calcESF(e).total; }
+function belegPrefix(e){ return e.verband==="ESF"?"ESF" : e.verband==="ANSCH"?"DSQVA" : "DSQV"; }
+function pad2(n){ return String(n).padStart(2,"0"); }
+function belegYM(e){ const s=(e&&e.belegMonat)||((e&&e.datum)||todayISO()).slice(0,7); const p=s.split("-"); return {y:+p[0], m:+p[1], s:p[0]+"-"+pad2(+p[1])}; }
+function bucketOf(e){ return e.verband+"|"+belegYM(e).s; }
+function belegRef(e){ const ym=belegYM(e); return `${belegPrefix(e)}-MG-${ym.y}-${pad2(ym.m)}-${pad2(e.belegNr)}`; }
+
+/* ---------- status toggles (Geldeingang / gesendet) ---------- */
+function applyErhalten(e,val){ e.erhalten=val; e.erhaltenAm = val ? (e.erhaltenAm||todayISO()) : ""; }
+function toggleErhalten(id){ const e=DB.entries.find(x=>x.id===id); applyErhalten(e,!e.erhalten); saveDB(); renderDashboard(); }
+function toggleGesendet(id){ const e=DB.entries.find(x=>x.id===id); e.gesendet=!e.gesendet; saveDB(); renderDashboard(); }
+function setErhaltenCurrent(val){ const e=E(); applyErhalten(e,val); saveDB(); renderForm(); renderDashboard(); }
+function setBelegNr(val){
+  const e=E(); const n=parseInt(val,10);
+  if(isNaN(n)||n<1){ renderForm(); return; }
+  e.belegNr=n; saveDB(); renderForm(); renderDashboard();
+}
+
+/* =======================================================================
+   NEW ENTRY FLOW (modal)
+   ======================================================================= */
+function startNew(){ document.getElementById("dsqvSub").style.display="none"; document.getElementById("chooseOverlay").classList.add("show"); }
+function closeModal(){ document.getElementById("chooseOverlay").classList.remove("show"); }
+function chooseVerband(v){
+  if(v==="DSQV"){ document.getElementById("dsqvSub").style.display="block"; }
+  else { closeModal(); createEntry(v); }
+}
+function chooseDsqvTyp(t){ closeModal(); createEntry("DSQV",t); }
+
+/* Eine Nummer gilt erst als "belegt", wenn Zweck/Ort (bzw. Positionen) ausgefüllt sind. */
+function hasContent(e){
+  if(!e) return false;
+  if(e.verband==="DSQV")  return !!((e.zweck||"").trim() || (e.ort||"").trim());
+  if(e.verband==="ESF")   return !!((e.purpose||"").trim() || (e.venue||"").trim());
+  if(e.verband==="ANSCH") return !!((e.zweck||"").trim() || (e.items||[]).some(it=>(it.bez||"").trim()));
+  return true;
+}
+function isEmptyDraft(e){ return !hasContent(e) && !((e.belege||[]).length) && entryTotal(e)===0; }
+function occupiedNrs(bucket, exceptId){
+  return new Set(DB.entries.filter(e=>e.id!==exceptId && hasContent(e) && bucketOf(e)===bucket).map(e=>e.belegNr));
+}
+function nextBelegNr(bucket, exceptId){
+  const occ=occupiedNrs(bucket, exceptId); let n=1; while(occ.has(n)) n++; return n;
+}
+function freeNrOptions(e){
+  const occ=occupiedNrs(bucketOf(e), e.id);
+  const maxOcc=occ.size?Math.max(...occ):0;
+  const opts=[];
+  for(let n=1;n<=maxOcc+1;n++){ if(!occ.has(n)) opts.push(n); }
+  if(!opts.includes(e.belegNr)) opts.push(e.belegNr);
+  return opts.sort((a,b)=>a-b);
+}
+function setBelegMonat(val){
+  const e=E(); if(!val) { renderForm(); return; }
+  const oldB=bucketOf(e); e.belegMonat=val; e.jahr=+val.split("-")[0];
+  const newB=bucketOf(e);
+  if(newB!==oldB) e.belegNr=nextBelegNr(newB, e.id); else normalizeNr(e);
+  saveDB(); renderForm(); renderDashboard();
+}
+function createEntry(verband,typ){
+  const today=todayISO();
+  const e = { id:"e"+Date.now(), verband, belegNr:1, jahr:+today.slice(0,4), belegMonat:today.slice(0,7),
+              datum:today, gesendet:false, erhalten:false, erhaltenAm:"", belege:[] };
+  e.belegNr = nextBelegNr(bucketOf(e));
+  if(verband==="DSQV"){
+    Object.assign(e,{ typ:typ||"inland",
+      zweck:"",ort:"",ortName:"",kennzeichen:DB.settings.stamm.kennzeichen,mitfahrer:"",
+      abfahrtDatum:todayISO(),abfahrtZeit:"",ankunftDatum:todayISO(),ankunftZeit:"",
+      bahn:0,flug:0,km:0,kmSatz:DB.settings.saetze.kmSatz,tank:0,sonstigesFahrt:0,
+      anreiseAktiv:false,anreiseSatz:DB.settings.saetze.anreise,anF:false,anM:false,anA:false,
+      volltage:0,volltagSatz:DB.settings.saetze.volltag,voF:false,voM:false,voA:false,
+      abreiseAktiv:false,abreiseSatz:DB.settings.saetze.abreise,abF:false,abM:false,abA:false,
+      naechte:0,hotel:0,
+      bueromaterial:0,parkgebuehren:0,sonstiges:0,sonstigesText:"",bewirtung:0,trinkgeld:0,
+      bewirtungOrt:"",bewirtungAnlass:"",bewirtungPersonen:"",bewirtungTag:"",
+      begReisezweck:"",begHotel:"",begPark:"",
+      anlagen:1, ortDatum:DB.settings.stamm.heimatort+", "+deDate(todayISO()) });
+  } else if(verband==="ANSCH"){
+    Object.assign(e,{ zweck:"", fuerVerband:"DSQV",
+      items:[{bez:"",haendler:"",datum:todayISO(),menge:1,einzel:0}],
+      ortDatum:DB.settings.stamm.heimatort+", "+deDate(todayISO()) });
+  } else {
+    const s=DB.settings.stamm;
+    Object.assign(e,{ name:s.name.split(",").reverse().join(" ").trim()||s.name, email:s.email,
+      purpose:"",dateFrom:todayISO(),dateTo:todayISO(),venue:"",currency:"EURO",
+      flights:line(),car:{km:0,satz:DB.settings.saetze.esfCarSatz},
+      train1:line(),taxi:line(),otherTravel:{label:"",...line()},
+      accommodation:line(),meals:line(),otherAccom:{label:"",...line()},
+      postage:line(),telephone:line(),stationery:line(),otherAdmin:{label:"",...line()},
+      ortDatumName:(DB.settings.stamm.heimatort||"")+", "+deDate(todayISO())+" / "+(s.name.split(",").reverse().join(" ").trim()) });
+  }
+  DB.entries.push(e); saveDB();
+  openEntry(e.id);
+}
+const line=()=>({orig:0,rate:1,receipt:false});
+
+/* ---------- open / delete ---------- */
+let currentId=null;
+function openEntry(id){
+  if(currentId && currentId!==id){ const prev=DB.entries.find(x=>x.id===currentId); if(prev && isEmptyDraft(prev)){ DB.entries=DB.entries.filter(x=>x.id!==currentId); saveDB(); } }
+  currentId=id; renderForm(); document.getElementById("tabFormBtn").style.display=""; showTab("form");
+}
+function delEntry(id){
+  const e=DB.entries.find(x=>x.id===id);
+  if(!confirm(`Abrechnung ${belegRef(e)} wirklich löschen?`)) return;
+  DB.entries=DB.entries.filter(x=>x.id!==id); saveDB(); renderDashboard();
+}
+
+/* =======================================================================
+   CALCULATIONS
+   ======================================================================= */
+function calcDSQV(e){
+  const kmBetrag = num(e.km)*num(e.kmSatz);
+  const summe1 = num(e.bahn)+num(e.flug)+kmBetrag+num(e.tank)+num(e.sonstigesFahrt);
+  const s=DB.settings.saetze;
+  // meal deductions
+  const mealAn=(e.anF?num(s.fruehstueck):0)+(e.anM?num(s.mittag):0)+(e.anA?num(s.abend):0);
+  const mealVo=(e.voF?num(s.fruehstueck):0)+(e.voM?num(s.mittag):0)+(e.voA?num(s.abend):0);
+  const mealAb=(e.abF?num(s.fruehstueck):0)+(e.abM?num(s.mittag):0)+(e.abA?num(s.abend):0);
+  const anB = e.anreiseAktiv ? Math.max(0, num(e.anreiseSatz)-mealAn) : 0;
+  const voB = Math.max(0, num(e.volltage)*num(e.volltagSatz) - num(e.volltage)*mealVo);
+  const abB = e.abreiseAktiv ? Math.max(0, num(e.abreiseSatz)-mealAb) : 0;
+  const summe2 = anB+voB+abB;
+  const sonstige = num(e.bueromaterial)+num(e.parkgebuehren)+num(e.sonstiges)+num(e.bewirtung)+num(e.trinkgeld);
+  const summe3 = num(e.hotel)+sonstige;
+  const gesamt = summe1+summe2+summe3;
+  return {kmBetrag,summe1,anB,voB,abB,summe2,sonstige,summe3,gesamt};
+}
+function calcESF(e){
+  const h=x=>num(x.orig)*num(x.rate);
+  const carH=num(e.car.km)*num(e.car.satz);
+  const travel=h(e.flights)+carH+h(e.train1)+h(e.taxi)+h(e.otherTravel);
+  const accom=h(e.accommodation)+h(e.meals)+h(e.otherAccom);
+  const admin=h(e.postage)+h(e.telephone)+h(e.stationery)+h(e.otherAdmin);
+  return {carH,travel,accom,admin,total:travel+accom+admin};
+}
+function calcAnsch(e){
+  const items=(e.items||[]).map(it=>num(it.menge)*num(it.einzel));
+  return {items, total:items.reduce((a,b)=>a+b,0)};
+}
+
+/* =======================================================================
+   FORM RENDERING
+   ======================================================================= */
+function E(){ return DB.entries.find(x=>x.id===currentId); }
+function up(field,val,recalc=true){ const e=E(); e[field]=val; saveDB(); if(recalc) refreshCalc(); }
+function upPath(obj,key,val){ const e=E(); e[obj][key]=val; saveDB(); refreshCalc(); }
+
+function renderForm(){
+  const e=E();
+  document.getElementById("page-form").innerHTML = e.verband==="DSQV"? formDSQV(e) : e.verband==="ANSCH"? formAnsch(e) : formESF(e);
+  refreshCalc();
+}
+function cleanupCurrentEntry(){
+  const e=E(); if(!e) return false;
+  if(isEmptyDraft(e)){ DB.entries=DB.entries.filter(x=>x.id!==e.id); currentId=null; saveDB(); return true; }
+  if(normalizeNr(e)) saveDB();
+  return false;
+}
+function normalizeNr(e){
+  if(!hasContent(e)) return false;
+  const b=bucketOf(e);
+  const dupe=DB.entries.some(x=>x!==e && hasContent(x) && bucketOf(x)===b && x.belegNr===e.belegNr);
+  if(dupe){ e.belegNr=nextBelegNr(b, e.id); return true; }
+  return false;
+}
+function backToList(){ cleanupCurrentEntry(); renderDashboard(); showTab("dashboard"); document.getElementById("tabFormBtn").style.display="none"; }
+function toast(msg){
+  let t=document.getElementById("toast");
+  if(!t){ t=document.createElement("div"); t.id="toast";
+    t.style.cssText="position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:var(--green);color:#fff;padding:11px 20px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.25);font-weight:700;z-index:200;opacity:0;transition:opacity .2s;pointer-events:none";
+    document.body.appendChild(t); }
+  t.textContent=msg; t.style.opacity="1";
+  clearTimeout(t._h); t._h=setTimeout(()=>{ t.style.opacity="0"; }, 1600);
+}
+function saveAndBack(){
+  const e=E(); const empty=e&&isEmptyDraft(e);
+  const okSave=saveDB();
+  cleanupCurrentEntry();
+  toast(empty?"Leerer Beleg verworfen":(okSave?"Gespeichert ✓":"Speicher voll – Backup exportieren!"));
+  renderDashboard(); showTab("dashboard"); document.getElementById("tabFormBtn").style.display="none";
+}
+
+/* ---------- shared header bar for form ---------- */
+function formHeader(e,title){
+  return `<div class="toolbar">
+    <button class="btn ghost" onclick="backToList()">← Übersicht</button>
+    <div class="spacer"></div>
+    <label class="chk"><input type="checkbox" ${e.gesendet?'checked':''} onchange="up('gesendet',this.checked,false);renderDashboard()"> gesendet</label>
+    <label class="chk"><input type="checkbox" ${e.erhalten?'checked':''} onchange="setErhaltenCurrent(this.checked)"> erhalten</label>
+    ${e.erhalten?`<label class="chk" style="gap:4px">am <input type="date" value="${e.erhaltenAm||todayISO()}" onchange="up('erhaltenAm',this.value,false);renderDashboard()" style="width:auto;padding:4px 6px"></label>`:''}
+    <button class="btn blue" onclick="printEntry('${e.id}')">🖨 Formular drucken / PDF</button>
+    <button class="btn primary" onclick="saveAndBack()">✓ Speichern</button>
+  </div>
+  <div class="card" style="display:flex;align-items:flex-start;gap:14px">
+    <div style="font-size:26px">${e.verband==="DSQV"?"🇩🇪":e.verband==="ANSCH"?"📦":"🇪🇺"}</div>
+    <div style="flex:1"><h2 style="margin:0">${title}</h2>
+      <div style="margin-top:6px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div style="font-size:18px;font-weight:800;letter-spacing:.3px">${belegRef(e)}</div>
+        <label class="muted" style="display:flex;align-items:center;gap:5px;font-size:12px">Monat
+          <input type="month" value="${belegYM(e).s}" onchange="setBelegMonat(this.value)" style="width:auto;padding:4px 6px"></label>
+        <label class="muted" style="display:flex;align-items:center;gap:5px;font-size:12px">lfd. Nr.
+          <select onchange="setBelegNr(this.value)" title="Freie laufende Nummer im Monat wählen" style="width:auto;padding:4px 22px 4px 8px;font-weight:700">
+            ${freeNrOptions(e).map(n=>`<option value="${n}" ${n===e.belegNr?"selected":""}>${pad2(n)}</option>`).join("")}
+          </select></label>
+      </div>
+      <div class="muted" style="margin-top:4px">${e.verband==="DSQV"?(e.typ==="ausland"?"DSQV – Ausland":"DSQV – Inland"):e.verband==="ANSCH"?"Anschaffungen / Auslagen für den Verband":"European Squash Federation"}${!hasContent(e)?' · <span style="color:var(--amber)">freie Nummer – wird erst belegt, sobald Zweck/Ort ausgefüllt ist</span>':''}</div>
+    </div>
+  </div>`;
+}
+
+/* ---------- location datalist ---------- */
+function locDatalist(){
+  return `<datalist id="locList">${DB.locations.map(l=>`<option value="${esc(l.name)}">`).join("")}</datalist>`;
+}
+
+/* ============ DSQV FORM ============ */
+function formDSQV(e){
+  const s=DB.settings.saetze;
+  const begOpts=(arr,cur)=>`<option value=""></option>`+arr.map(t=>`<option ${cur===t?'selected':''}>${esc(t)}</option>`).join("");
+  return formHeader(e,"Reisekostenabrechnung")+locDatalist()+`
+  <div class="card">
+    <h2>Kopfdaten</h2>
+    <div class="row">
+      <div class="col field"><label>Zweck der Reise</label>
+        <input type="text" value="${esc(e.zweck)}" oninput="up('zweck',this.value,false)"></div>
+    </div>
+    <div class="field"><label>Ort der Reise <span class="hint">(Ort + Name der Veranstaltung – Auswahl füllt die km automatisch)</span></label>
+      <input type="text" list="locList" value="${esc(e.ort)}" oninput="onLocInput(this.value)"></div>
+    <div class="row">
+      <div class="col field"><label>Abfahrt ab Wohnung – Datum</label><input type="date" value="${e.abfahrtDatum||''}" oninput="up('abfahrtDatum',this.value,false)"></div>
+      <div class="col field"><label>Zeit</label><input type="time" value="${e.abfahrtZeit||''}" oninput="up('abfahrtZeit',this.value,false)"></div>
+      <div class="col field"><label>Ankunft an Wohnung – Datum</label><input type="date" value="${e.ankunftDatum||''}" oninput="up('ankunftDatum',this.value,false)"></div>
+      <div class="col field"><label>Zeit</label><input type="time" value="${e.ankunftZeit||''}" oninput="up('ankunftZeit',this.value,false)"></div>
+    </div>
+    <div class="row">
+      <div class="col field"><label>Auto-Kennzeichen</label><input type="text" value="${esc(e.kennzeichen)}" oninput="up('kennzeichen',this.value,false)"></div>
+      <div class="col field"><label>Mitfahrer</label><input type="text" value="${esc(e.mitfahrer)}" oninput="up('mitfahrer',this.value,false)"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="sec">1) Fahrtkosten</div>
+    <div class="row">
+      <div class="col field"><label>Benutzung Bundesbahn (2. Klasse) €</label><input type="number" step="0.01" value="${e.bahn}" oninput="up('bahn',this.value)"></div>
+      <div class="col field"><label>Benutzung Flugzeug €</label><input type="number" step="0.01" value="${e.flug}" oninput="up('flug',this.value)"></div>
+    </div>
+    <div class="row">
+      <div class="col field"><label>Privatwagen – Kilometer (Hin & Zurück)</label><input type="number" step="0.1" id="kmInput" value="${e.km}" oninput="up('km',this.value)"></div>
+      <div class="col field"><label>Satz €/km</label><input type="number" step="0.01" value="${e.kmSatz}" oninput="up('kmSatz',this.value)"></div>
+      <div class="col field"><label>Fahrtkosten PKW</label><input type="text" id="kmBetrag" readonly style="background:#f3f6f4;font-weight:700"></div>
+    </div>
+    <div class="row">
+      <div class="col field"><label>Tankrechnungen €</label><input type="number" step="0.01" value="${e.tank}" oninput="up('tank',this.value)"></div>
+      <div class="col field"><label>Sonstige Fahrtkosten (Bus, Taxi, Parken) €</label><input type="number" step="0.01" value="${e.sonstigesFahrt}" oninput="up('sonstigesFahrt',this.value)"></div>
+    </div>
+    <div class="calcbox"><span>Summe 1) Fahrtkosten</span><span class="amt" id="summe1"></span></div>
+  </div>
+
+  <div class="card">
+    <div class="sec">2) Pauschaler Verpflegungs-Mehraufwand</div>
+    <p class="muted" style="margin-top:0">Häkchen bei bereitgestellten Mahlzeiten – der Abzug (Frühstück ${EUR(s.fruehstueck)}, Mittag ${EUR(s.mittag)}, Abend ${EUR(s.abend)}) erfolgt automatisch.${e.typ==="ausland"?' <b>Ausland:</b> Sätze bitte an das jeweilige Land anpassen.':''}</p>
+    ${verpflegungRow("Anreisetag (≥ 8 Std.)","anreise","an",e)}
+    ${verpflegungRow("Volle Tage (24 Std.)","volltag","vo",e,true)}
+    ${verpflegungRow("Abreisetag (≥ 8 Std.)","abreise","ab",e)}
+    <div class="calcbox"><span>Summe 2) Verpflegung</span><span class="amt" id="summe2"></span></div>
+  </div>
+
+  <div class="card">
+    <div class="sec">3) Übernachtung & Sonstige Kosten</div>
+    <div class="row">
+      <div class="col field"><label>Anzahl Nächte</label><input type="number" step="1" value="${e.naechte}" oninput="up('naechte',this.value)"></div>
+      <div class="col field"><label>Übernachtungskosten gesamt €</label><input type="number" step="0.01" value="${e.hotel}" oninput="up('hotel',this.value)"></div>
+    </div>
+    <div class="row">
+      <div class="col field"><label>Büromaterial / Internet €</label><input type="number" step="0.01" value="${e.bueromaterial}" oninput="up('bueromaterial',this.value)"></div>
+      <div class="col field"><label>Parkgebühren €</label><input type="number" step="0.01" value="${e.parkgebuehren}" oninput="up('parkgebuehren',this.value)"></div>
+    </div>
+    <div class="row">
+      <div class="col field"><label>Sonstiges €</label><input type="number" step="0.01" value="${e.sonstiges}" oninput="up('sonstiges',this.value)"></div>
+      <div class="col field" style="flex:2"><label>Beschreibung Sonstiges</label><input type="text" value="${esc(e.sonstigesText)}" oninput="up('sonstigesText',this.value,false)"></div>
+    </div>
+    <div class="row">
+      <div class="col field"><label>Bewirtung €</label><input type="number" step="0.01" value="${e.bewirtung}" oninput="up('bewirtung',this.value)"></div>
+      <div class="col field"><label>Trinkgeld €</label><input type="number" step="0.01" value="${e.trinkgeld}" oninput="up('trinkgeld',this.value)"></div>
+    </div>
+    <div class="calcbox"><span>Summe 3) Übernachtung & Sonstiges</span><span class="amt" id="summe3"></span></div>
+  </div>
+
+  <div class="card">
+    <div class="sec">Begründungen (2. Seite)</div>
+    <div class="field"><label>Begründung Reisezweck</label>
+      <select onchange="up('begReisezweck',this.value,false)">${begOpts(DB.settings.begruendungen.reisezweck,e.begReisezweck)}</select></div>
+    <div class="row">
+      <div class="col field"><label>Begründung Hotelkosten</label>
+        <select onchange="up('begHotel',this.value,false)">${begOpts(DB.settings.begruendungen.hotel,e.begHotel)}</select></div>
+      <div class="col field"><label>Begründung Parkkosten</label>
+        <select onchange="up('begPark',this.value,false)">${begOpts(DB.settings.begruendungen.park,e.begPark)}</select></div>
+    </div>
+    <div class="row" style="border-top:1px solid var(--line);padding-top:12px;margin-top:6px">
+      <div class="col field"><label>Bewirtung – Datum</label><input type="date" value="${e.bewirtungTag||''}" oninput="up('bewirtungTag',this.value,false)"></div>
+      <div class="col field" style="flex:2"><label>Bewirtung – Ort</label><input type="text" value="${esc(e.bewirtungOrt)}" oninput="up('bewirtungOrt',this.value,false)"></div>
+    </div>
+    <div class="field"><label>Bewirtung – Anlass</label><input type="text" value="${esc(e.bewirtungAnlass)}" oninput="up('bewirtungAnlass',this.value,false)"></div>
+    <div class="field"><label>Bewirtung – Personen</label><textarea oninput="up('bewirtungPersonen',this.value,false)">${esc(e.bewirtungPersonen)}</textarea></div>
+    <div class="row">
+      <div class="col field"><label>Anzahl Belege</label><input type="number" step="1" value="${e.anlagen}" oninput="up('anlagen',this.value,false)"></div>
+      <div class="col field" style="flex:2"><label>Ort, Datum (Unterschrift)</label><input type="text" value="${esc(e.ortDatum)}" oninput="up('ortDatum',this.value,false)"></div>
+    </div>
+  </div>
+
+  ${belegeCard(e)}
+
+  <div class="card" style="background:var(--green-d);color:#fff">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <span style="font-weight:700;font-size:16px">Gesamt 1) + 2) + 3)</span>
+      <span style="font-weight:800;font-size:24px" id="gesamt"></span>
+    </div>
+  </div>`;
+}
+
+function verpflegungRow(title,base,prefix,e,isCount){
+  const aktivField = isCount? "" : base+"Aktiv";
+  const cnt = isCount?`<div style="width:90px"><label style="font-size:11px;color:#3a4655;font-weight:600">Anzahl</label>
+     <input type="number" step="1" value="${e[base==='volltag'?'volltage':base]}" oninput="up('${base==='volltag'?'volltage':base}',this.value)"></div>`:
+     `<label class="chk" style="margin-right:6px"><input type="checkbox" ${e[aktivField]?'checked':''} onchange="up('${aktivField}',this.checked)"> aktiv</label>`;
+  const satzField = base+"Satz";
+  return `<div style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px">
+    <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+      <div style="flex:1;min-width:160px;font-weight:700">${title}</div>
+      ${cnt}
+      <div style="width:110px"><label style="font-size:11px;color:#3a4655;font-weight:600">Satz €</label>
+        <input type="number" step="0.01" value="${e[satzField]}" oninput="up('${satzField}',this.value)"></div>
+      <div style="display:flex;gap:6px">
+        <label class="chk"><input type="checkbox" ${e[prefix+'F']?'checked':''} onchange="up('${prefix}F',this.checked)"> Frühst.</label>
+        <label class="chk"><input type="checkbox" ${e[prefix+'M']?'checked':''} onchange="up('${prefix}M',this.checked)"> Mittag</label>
+        <label class="chk"><input type="checkbox" ${e[prefix+'A']?'checked':''} onchange="up('${prefix}A',this.checked)"> Abend</label>
+      </div>
+      <div style="width:110px;text-align:right"><label style="font-size:11px;color:var(--muted)">Betrag</label>
+        <div class="money" id="vp_${prefix}" style="font-size:15px">–</div></div>
+    </div></div>`;
+}
+
+function onLocInput(v){
+  const e=E(); e.ort=v;
+  const loc=DB.locations.find(l=>l.name===v);
+  if(loc){ e.km=+(loc.km*2).toFixed(1); const ki=document.getElementById("kmInput"); if(ki) ki.value=e.km; e.ortName=loc.name.split(",")[0]; }
+  saveDB(); refreshCalc();
+}
+
+/* ============ ESF FORM ============ */
+function formESF(e){
+  const L=(label,obj,path,hasReceipt=true,hasLabel=false)=>{
+    const o = path? e[obj][path] : e[obj];
+    return `<div style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px">
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+        <div style="flex:1;min-width:150px">
+          ${hasLabel?`<label style="font-size:11px;font-weight:600">Bezeichnung</label><input type="text" value="${esc(o.label||'')}" oninput="setESF('${obj}','label',this.value)">`
+                    :`<div style="font-weight:700">${label}</div>`}
+        </div>
+        <div style="width:120px"><label style="font-size:11px;font-weight:600">Betrag (Original)</label>
+          <input type="number" step="0.01" value="${o.orig}" oninput="setESF('${obj}','orig',this.value${path?",'"+path+"'":""})"></div>
+        <div style="width:100px"><label style="font-size:11px;font-weight:600">Kurs</label>
+          <input type="number" step="0.0001" value="${o.rate}" oninput="setESF('${obj}','rate',this.value)"></div>
+        <div style="width:110px;text-align:right"><label style="font-size:11px;color:var(--muted)">in EUR</label>
+          <div class="money" id="esf_${obj}" style="font-size:15px">–</div></div>
+        <label class="chk"><input type="checkbox" ${o.receipt?'checked':''} onchange="setESF('${obj}','receipt',this.checked)"> Beleg</label>
+      </div></div>`;
+  };
+  return formHeader(e,"Expenses Claim Form")+`
+  <div class="notice">ESF-Formular: Alle Beträge in Originalwährung eingeben. Bei EURO ist der Kurs 1. „in EUR“ = Betrag × Kurs (automatisch).</div>
+  <div class="card">
+    <h2>Angaben</h2>
+    <div class="row">
+      <div class="col field"><label>Name of claimant</label><input type="text" value="${esc(e.name)}" oninput="up('name',this.value,false)"></div>
+      <div class="col field"><label>E-mail address</label><input type="email" value="${esc(e.email)}" oninput="up('email',this.value,false)"></div>
+    </div>
+    <div class="field"><label>Purpose of claim (event, meeting, etc.)</label><input type="text" value="${esc(e.purpose)}" oninput="up('purpose',this.value,false)"></div>
+    <div class="field"><label>Venue</label><input type="text" list="locList" value="${esc(e.venue)}" oninput="up('venue',this.value,false)"></div>
+    ${locDatalist()}
+    <div class="row">
+      <div class="col field"><label>Date from</label><input type="date" value="${e.dateFrom||''}" oninput="up('dateFrom',this.value,false)"></div>
+      <div class="col field"><label>Date to</label><input type="date" value="${e.dateTo||''}" oninput="up('dateTo',this.value,false)"></div>
+      <div class="col field"><label>Currency of claim</label><input type="text" value="${esc(e.currency)}" oninput="up('currency',this.value,false)"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="sec blue">Travel</div>
+    ${L("Flights","flights")}
+    <div style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px">
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+        <div style="flex:1;min-width:150px;font-weight:700">Car <span class="muted" style="font-weight:400">(${DB.settings.saetze.esfCarSatz} €/km)</span></div>
+        <div style="width:120px"><label style="font-size:11px;font-weight:600">Kilometer</label>
+          <input type="number" step="0.1" value="${e.car.km}" oninput="setCar('km',this.value)"></div>
+        <div style="width:100px"><label style="font-size:11px;font-weight:600">€/km</label>
+          <input type="number" step="0.01" value="${e.car.satz}" oninput="setCar('satz',this.value)"></div>
+        <div style="width:110px;text-align:right"><label style="font-size:11px;color:var(--muted)">in EUR</label>
+          <div class="money" id="esf_car" style="font-size:15px">–</div></div>
+      </div></div>
+    ${L("Train","train1")}
+    ${L("Taxi","taxi")}
+    ${L("Other","otherTravel",null,true,true)}
+    <div class="calcbox" style="background:var(--blue-l);border-color:#c3d3e6;color:var(--blue)"><span>Sub-total Travel</span><span class="amt" id="esfTravel"></span></div>
+  </div>
+
+  <div class="card">
+    <div class="sec blue">Accommodation & Subsistence</div>
+    ${L("Accommodation","accommodation")}
+    ${L("Meals","meals")}
+    ${L("Other","otherAccom",null,true,true)}
+    <div class="calcbox" style="background:var(--blue-l);border-color:#c3d3e6;color:var(--blue)"><span>Sub-total Accommodation</span><span class="amt" id="esfAccom"></span></div>
+  </div>
+
+  <div class="card">
+    <div class="sec blue">Administration Costs</div>
+    ${L("Postage","postage")}
+    ${L("Telephone / Fax","telephone")}
+    ${L("Stationery","stationery")}
+    ${L("Other","otherAdmin",null,true,true)}
+    <div class="calcbox" style="background:var(--blue-l);border-color:#c3d3e6;color:var(--blue)"><span>Sub-total Admin</span><span class="amt" id="esfAdmin"></span></div>
+  </div>
+
+  ${belegeCard(e)}
+
+  <div class="card">
+    <div class="field"><label>Ort, Datum / Name (Unterschrift)</label><input type="text" value="${esc(e.ortDatumName)}" oninput="up('ortDatumName',this.value,false)"></div>
+  </div>
+
+  <div class="card" style="background:var(--blue);color:#fff">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <span style="font-weight:700;font-size:16px">TOTAL CLAIM</span>
+      <span style="font-weight:800;font-size:24px" id="esfTotal"></span>
+    </div>
+  </div>`;
+}
+function setESF(obj,key,val,path){
+  const e=E();
+  if(path){ e[obj][path][key]=(key==="receipt")?val:(key==="label"?val:num(val)); }
+  else { e[obj][key]=(key==="receipt")?val:(key==="label"?val:num(val)); }
+  saveDB(); refreshCalc();
+}
+function setCar(key,val){ const e=E(); e.car[key]=num(val); saveDB(); refreshCalc(); }
+
+/* ============ ANSCHAFFUNGEN FORM ============ */
+function formAnsch(e){
+  const items=(e.items||[]);
+  const rows=items.map((it,i)=>`
+    <div class="anschrow" style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px">
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+        <div style="flex:2;min-width:180px"><label style="font-size:11px;font-weight:600">Bezeichnung</label>
+          <input type="text" value="${esc(it.bez)}" oninput="setAnschItem(${i},'bez',this.value)" placeholder="z. B. Squashbälle Dunlop Pro (12er)"></div>
+        <div style="flex:1;min-width:140px"><label style="font-size:11px;font-weight:600">Händler / Lieferant</label>
+          <input type="text" value="${esc(it.haendler)}" oninput="setAnschItem(${i},'haendler',this.value)"></div>
+        <div style="width:130px"><label style="font-size:11px;font-weight:600">Datum</label>
+          <input type="date" value="${it.datum||''}" oninput="setAnschItem(${i},'datum',this.value)"></div>
+        <div style="width:70px"><label style="font-size:11px;font-weight:600">Menge</label>
+          <input type="number" step="1" min="0" value="${it.menge}" oninput="setAnschItem(${i},'menge',this.value)"></div>
+        <div style="width:110px"><label style="font-size:11px;font-weight:600">Einzelpreis €</label>
+          <input type="number" step="0.01" value="${it.einzel}" oninput="setAnschItem(${i},'einzel',this.value)"></div>
+        <div style="width:110px;text-align:right"><label style="font-size:11px;color:var(--muted)">Betrag</label>
+          <div class="money" id="ansch_betrag_${i}" style="font-size:15px">–</div></div>
+        <button class="btn sm danger" onclick="removeAnschItem(${i})" title="Position entfernen" ${items.length<=1?'disabled style="opacity:.4"':''}>✕</button>
+      </div></div>`).join("");
+  return formHeader(e,"Anschaffungen / Auslagen")+`
+  <div class="notice">Erfasse hier Equipment/Auslagen, die du für den Verband gekauft hast und erstattet bekommen möchtest. Betrag = Menge × Einzelpreis (automatisch). Rechnungen/Quittungen unter „Belege“ hochladen.</div>
+  <div class="card">
+    <h2>Angaben</h2>
+    <div class="row">
+      <div class="col field"><label>Verwendungszweck / Anlass</label><input type="text" value="${esc(e.zweck)}" oninput="up('zweck',this.value,false)" placeholder="z. B. Ausstattung Bundesliga-Spieltag"></div>
+      <div class="col field"><label>Angeschafft für (Verband)</label><input type="text" value="${esc(e.fuerVerband)}" oninput="up('fuerVerband',this.value,false)"></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="sec violet">Angeschaffte Gegenstände / Auslagen</div>
+    <div id="anschItems">${rows}</div>
+    <button class="btn sm" onclick="addAnschItem()">＋ Position hinzufügen</button>
+  </div>
+  ${belegeCard(e)}
+  <div class="card">
+    <div class="field"><label>Ort, Datum (Unterschrift)</label><input type="text" value="${esc(e.ortDatum)}" oninput="up('ortDatum',this.value,false)"></div>
+  </div>
+  <div class="card" style="background:var(--violet);color:#fff">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <span style="font-weight:700;font-size:16px">Gesamt-Erstattungsbetrag</span>
+      <span style="font-weight:800;font-size:24px" id="anschTotal"></span>
+    </div>
+  </div>`;
+}
+function setAnschItem(i,key,val){ const e=E(); const it=e.items[i]; if(!it) return; it[key]=(key==="menge"||key==="einzel")?num(val):val; saveDB(); refreshCalc(); }
+function addAnschItem(){ const e=E(); e.items.push({bez:"",haendler:"",datum:todayISO(),menge:1,einzel:0}); saveDB(); renderForm(); }
+function removeAnschItem(i){ const e=E(); if(e.items.length<=1) return; e.items.splice(i,1); saveDB(); renderForm(); }
+
+/* =======================================================================
+   BELEGE (Upload / Einbindung in PDF)
+   ======================================================================= */
+function fmtKB(bytes){ const kb=(bytes||0)/1024; return kb>=1024?(kb/1024).toFixed(1)+" MB":Math.max(1,Math.round(kb))+" KB"; }
+function belegeCard(e){
+  const bs=e.belege||[];
+  const list=bs.map(b=>`
+    <div class="belegrow">
+      ${b.type==="image"?`<img class="belthumb" src="${b.data}" alt="">`:`<div class="belthumb pdf">PDF</div>`}
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(b.name)}</div>
+        <div class="muted" style="font-size:11.5px">${b.type==="image"?"Bild – wird in die PDF eingebunden":"PDF – wird als separate Anlage aufgeführt"} · ${fmtKB(b.size)}</div>
+      </div>
+      <button class="btn sm" onclick="openBeleg('${b.id}')">Ansehen</button>
+      <button class="btn sm danger" onclick="removeBeleg('${b.id}')">✕</button>
+    </div>`).join("");
+  return `<div class="card">
+    <h2>Belege <span class="sub">– Fotos/Scans werden beim PDF-Erstellen automatisch als weitere Seiten angehängt</span></h2>
+    <label class="btn" style="cursor:pointer">＋ Belege hochladen<input type="file" accept="image/*,application/pdf" multiple style="display:none" onchange="addBelege(this)"></label>
+    <div id="belegeList" style="margin-top:10px">${list||'<p class="muted" style="margin:6px 0 0">Noch keine Belege hochgeladen. Fotos (JPG/PNG) oder PDF möglich.</p>'}</div>
+  </div>`;
+}
+function readDataURL(file){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=()=>rej(r.error||new Error("read")); r.readAsDataURL(file); }); }
+function compressImage(file,maxDim,quality){
+  return new Promise((res,rej)=>{
+    const url=URL.createObjectURL(file); const img=new Image();
+    img.onload=()=>{ URL.revokeObjectURL(url);
+      let w=img.naturalWidth||img.width, h=img.naturalHeight||img.height;
+      if(w>maxDim||h>maxDim){ const r=Math.min(maxDim/w,maxDim/h); w=Math.round(w*r); h=Math.round(h*r); }
+      const cv=document.createElement("canvas"); cv.width=w; cv.height=h;
+      const ctx=cv.getContext("2d"); ctx.fillStyle="#fff"; ctx.fillRect(0,0,w,h); ctx.drawImage(img,0,0,w,h);
+      try{ res(cv.toDataURL("image/jpeg",quality)); }catch(err){ rej(err); }
+    };
+    img.onerror=()=>{ URL.revokeObjectURL(url); rej(new Error("image load")); };
+    img.src=url;
+  });
+}
+async function addBelege(inp){
+  const files=[...inp.files]; if(!files.length) return;
+  const e=E(); e.belege=e.belege||[];
+  for(const f of files){
+    try{
+      let b;
+      if(f.type && f.type.startsWith("image/")){
+        const data=await compressImage(f,1600,0.72);
+        b={ id:bid(), name:f.name, type:"image", data, size:Math.round(data.length*0.75) };
+      } else if(f.type==="application/pdf" || /\.pdf$/i.test(f.name)){
+        if(f.size>4*1024*1024){ alert(`„${f.name}" ist größer als 4 MB und wurde übersprungen. Bitte eine kleinere PDF verwenden.`); continue; }
+        const data=await readDataURL(f);
+        b={ id:bid(), name:f.name, type:"pdf", data, size:f.size };
+      } else { alert(`„${f.name}": Format wird nicht unterstützt (nur Bilder oder PDF).`); continue; }
+      e.belege.push(b);
+      if(!saveDB()){ e.belege.pop(); alert("Der lokale Speicher ist voll – dieser Beleg wurde nicht gespeichert. Bitte alte Belege entfernen oder ein Backup exportieren und Platz schaffen."); break; }
+    }catch(err){ console.error(err); alert(`„${f.name}" konnte nicht geladen werden.`); }
+  }
+  inp.value=""; renderForm();
+}
+function bid(){ return "b"+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+function removeBeleg(id){ const e=E(); if(!confirm("Beleg wirklich entfernen?")) return; e.belege=(e.belege||[]).filter(b=>b.id!==id); saveDB(); renderForm(); }
+function openBeleg(id){ const e=E(); const b=(e.belege||[]).find(x=>x.id===id); if(!b) return;
+  const a=document.createElement("a"); a.href=b.data; a.target="_blank"; a.rel="noopener"; document.body.appendChild(a); a.click(); a.remove(); }
+function belegePrint(e){
+  const bs=e.belege||[]; if(!bs.length) return "";
+  const imgs=bs.filter(b=>b.type==="image"), pdfs=bs.filter(b=>b.type==="pdf");
+  let html="";
+  imgs.forEach((b,i)=>{ html+=`<div class="pagebreak"></div><div class="belegsheet"><div class="belegcap">Beleg ${i+1}: ${esc(b.name)} · ${belegRef(e)}</div><img class="belegfull" src="${b.data}" alt=""></div>`; });
+  if(pdfs.length){ html+=`<div class="pagebreak"></div><div class="belegsheet"><div class="belegcap">Weitere Belege (PDF) · ${belegRef(e)}</div><ul style="font-size:11px;margin:6px 0 0 16px">${pdfs.map(b=>`<li>${esc(b.name)} – als separate PDF-Datei beigefügt</li>`).join("")}</ul></div>`; }
+  return html;
+}
+
+/* ---------- live recalc ---------- */
+function refreshCalc(){
+  const e=E(); if(!e) return;
+  if(e.verband==="DSQV"){
+    const c=calcDSQV(e);
+    const set=(id,v)=>{const el=document.getElementById(id); if(el) el.textContent=v;};
+    const kb=document.getElementById("kmBetrag"); if(kb) kb.value=EUR(c.kmBetrag);
+    set("summe1",EUR(c.summe1)); set("summe2",EUR(c.summe2)); set("summe3",EUR(c.summe3)); set("gesamt",EUR(c.gesamt));
+    set("vp_an",EUR(c.anB)); set("vp_vo",EUR(c.voB)); set("vp_ab",EUR(c.abB));
+  } else if(e.verband==="ANSCH"){
+    const c=calcAnsch(e);
+    (e.items||[]).forEach((it,i)=>{ const el=document.getElementById("ansch_betrag_"+i); if(el) el.textContent=EUR(c.items[i]); });
+    const t=document.getElementById("anschTotal"); if(t) t.textContent=EUR(c.total);
+  } else {
+    const c=calcESF(e);
+    const set=(id,v)=>{const el=document.getElementById(id); if(el) el.textContent=v;};
+    const h=x=>num(x.orig)*num(x.rate);
+    ["flights","train1","taxi","otherTravel","accommodation","meals","otherAccom","postage","telephone","stationery","otherAdmin"]
+      .forEach(k=>set("esf_"+k,EUR(h(e[k]))));
+    set("esf_car",EUR(c.carH));
+    set("esfTravel",EUR(c.travel)); set("esfAccom",EUR(c.accom)); set("esfAdmin",EUR(c.admin)); set("esfTotal",EUR(c.total));
+  }
+}
+
+/* =======================================================================
+   SETTINGS
+   ======================================================================= */
+/* =======================================================================
+   STATISTIK
+   ======================================================================= */
+function renderStatistik(){
+  const es=DB.entries;
+  const T=e=>entryTotal(e);
+  const sum=arr=>arr.reduce((a,e)=>a+T(e),0);
+  const erhalten=es.filter(e=>e.erhalten);
+  const offen=es.filter(e=>!e.erhalten);
+  const wartet=es.filter(e=>e.gesendet&&!e.erhalten);
+  const entwurf=es.filter(e=>!e.gesendet&&!e.erhalten);
+  const card=(k,v,sub,cls)=>`<div class="stat"><div class="k">${k}</div><div class="v"${cls?` style="color:var(--${cls})"`:''}>${v}</div>${sub?`<div class="s">${sub}</div>`:''}</div>`;
+  const grp=list=>({n:list.length, sum:sum(list), erh:sum(list.filter(e=>e.erhalten)), off:sum(list.filter(e=>!e.erhalten))});
+  const dsqvAll=es.filter(e=>e.verband==="DSQV");
+  const esfAll=es.filter(e=>e.verband==="ESF");
+  const anschAll=es.filter(e=>e.verband==="ANSCH");
+  const gr=(lab,g)=>`<tr><td>${lab}</td><td>${g.n}</td><td>${EUR(g.sum)}</td><td class="ok">${EUR(g.erh)}</td><td class="amber">${EUR(g.off)}</td></tr>`;
+
+  const vbTable=`<table class="gt">
+    <thead><tr><th>Verband</th><th>Belege</th><th>Volumen</th><th>Erhalten</th><th>Offen</th></tr></thead>
+    <tbody>
+      ${gr("DSQV gesamt",grp(dsqvAll))}
+      ${gr("&nbsp;&nbsp;↳ davon Inland",grp(dsqvAll.filter(e=>e.typ!=="ausland")))}
+      ${gr("&nbsp;&nbsp;↳ davon Ausland",grp(dsqvAll.filter(e=>e.typ==="ausland")))}
+      ${gr("ESF",grp(esfAll))}
+      ${gr("Anschaffungen",grp(anschAll))}
+    </tbody>
+    <tfoot>${gr("Gesamt",grp(es))}</tfoot>
+  </table>`;
+
+  const years=[...new Set(es.map(e=>e.jahr))].sort().reverse();
+  const yrTable=years.length?`<table class="gt">
+    <thead><tr><th>Jahr</th><th>Belege</th><th>Volumen</th><th>Erhalten</th><th>Offen</th></tr></thead>
+    <tbody>${years.map(y=>gr(y,grp(es.filter(e=>e.jahr===y)))).join("")}</tbody>
+  </table>`:'<p class="muted" style="margin:0">Noch keine Daten.</p>';
+
+  document.getElementById("page-statistik").innerHTML=`
+    <div class="stats">
+      ${card("Abrechnungen gesamt", es.length, EUR(sum(es))+" Volumen")}
+      ${card("Erhalten", EUR(sum(erhalten)), erhalten.length+" Belege", "ok")}
+      ${card("Noch offen", EUR(sum(offen)), offen.length+" Belege", "amber")}
+      ${card("Wartet auf Zahlung", EUR(sum(wartet)), wartet.length+" Belege gesendet")}
+    </div>
+    <div class="card"><h2>Nach Verband</h2>${vbTable}</div>
+    <div class="card"><h2>Nach Jahr</h2>${yrTable}</div>
+    <div class="card"><h2>Nach Status</h2>
+      <table class="gt">
+        <thead><tr><th>Status</th><th>Belege</th><th>Summe</th></tr></thead>
+        <tbody>
+          <tr><td>Entwurf (noch nicht gesendet)</td><td>${entwurf.length}</td><td>${EUR(sum(entwurf))}</td></tr>
+          <tr><td>Gesendet, wartet auf Geldeingang</td><td>${wartet.length}</td><td class="amber">${EUR(sum(wartet))}</td></tr>
+          <tr><td>Erhalten</td><td>${erhalten.length}</td><td class="ok">${EUR(sum(erhalten))}</td></tr>
+        </tbody>
+        <tfoot><tr><td>Gesamt</td><td>${es.length}</td><td>${EUR(sum(es))}</td></tr></tfoot>
+      </table>
+      <p class="muted" style="margin:10px 0 0">Tipp: In der Übersicht kannst du den grünen Punkt in der Spalte „Erhalten" anklicken, um einen Geldeingang mit Datum zu markieren.</p>
+    </div>
+    <div class="toolbar" style="margin-top:4px"><button class="btn sm" onclick="exportCSV()">CSV-Export (alle Belege)</button></div>`;
+}
+
+function renderSettings(){
+  const s=DB.settings;
+  document.getElementById("page-settings").innerHTML=`
+  <div class="card">
+    <h2>Stammdaten <span class="sub">– erscheinen automatisch im Formular</span></h2>
+    <div class="row">
+      <div class="col field"><label>Name, Vorname</label><input type="text" value="${esc(s.stamm.name)}" oninput="setS('stamm','name',this.value)"></div>
+      <div class="col field"><label>Heimatort (für „Ort, Datum")</label><input type="text" value="${esc(s.stamm.heimatort)}" oninput="setS('stamm','heimatort',this.value)"></div>
+    </div>
+    <div class="field"><label>Straße, Wohnort</label><input type="text" value="${esc(s.stamm.strasse)}" oninput="setS('stamm','strasse',this.value)"></div>
+    <div class="row">
+      <div class="col field"><label>IBAN</label><input type="text" value="${esc(s.stamm.iban)}" oninput="setS('stamm','iban',this.value)"></div>
+      <div class="col field"><label>BIC</label><input type="text" value="${esc(s.stamm.bic)}" oninput="setS('stamm','bic',this.value)"></div>
+    </div>
+    <div class="row">
+      <div class="col field"><label>Auto-Kennzeichen (Standard)</label><input type="text" value="${esc(s.stamm.kennzeichen)}" oninput="setS('stamm','kennzeichen',this.value)"></div>
+      <div class="col field"><label>E-Mail (ESF)</label><input type="email" value="${esc(s.stamm.email)}" oninput="setS('stamm','email',this.value)"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Sätze & Pauschalen</h2>
+    <div class="row">
+      <div class="col field"><label>km-Satz DSQV (€/km)</label><input type="number" step="0.01" value="${s.saetze.kmSatz}" oninput="setS('saetze','kmSatz',num(this.value))"></div>
+      <div class="col field"><label>Anreisetag (€)</label><input type="number" step="0.01" value="${s.saetze.anreise}" oninput="setS('saetze','anreise',num(this.value))"></div>
+      <div class="col field"><label>Voller Tag / 24h (€)</label><input type="number" step="0.01" value="${s.saetze.volltag}" oninput="setS('saetze','volltag',num(this.value))"></div>
+      <div class="col field"><label>Abreisetag (€)</label><input type="number" step="0.01" value="${s.saetze.abreise}" oninput="setS('saetze','abreise',num(this.value))"></div>
+    </div>
+    <div class="row">
+      <div class="col field"><label>Abzug Frühstück (€)</label><input type="number" step="0.01" value="${s.saetze.fruehstueck}" oninput="setS('saetze','fruehstueck',num(this.value))"></div>
+      <div class="col field"><label>Abzug Mittagessen (€)</label><input type="number" step="0.01" value="${s.saetze.mittag}" oninput="setS('saetze','mittag',num(this.value))"></div>
+      <div class="col field"><label>Abzug Abendessen (€)</label><input type="number" step="0.01" value="${s.saetze.abend}" oninput="setS('saetze','abend',num(this.value))"></div>
+      <div class="col field"><label>ESF Car (€/km)</label><input type="number" step="0.01" value="${s.saetze.esfCarSatz}" oninput="setS('saetze','esfCarSatz',num(this.value))"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Orte (BASIC) <span class="sub">– Ort + einfache Entfernung (km). Hin & Zurück wird automatisch berechnet.</span></h2>
+    <div class="locrow" style="font-weight:700;color:var(--muted);font-size:12px">
+      <div>Ort / Spielstätte</div><div style="text-align:center">km einfach</div><div style="text-align:center">km gesamt</div><div></div></div>
+    <div id="locEditor"></div>
+    <button class="btn sm" onclick="addLoc()">＋ Ort hinzufügen</button>
+  </div>
+
+  <div class="card">
+    <h2>Begründungstexte (2. Seite DSQV)</h2>
+    ${reasonEditor("Reisezweck","reisezweck")}
+    ${reasonEditor("Hotelkosten","hotel")}
+    ${reasonEditor("Parkkosten","park")}
+  </div>
+
+  <div class="card">
+    <h2>Formular-Kopf & Rückgabe</h2>
+    <div class="field"><label>DSQV – Verbandsname</label><input type="text" value="${esc(s.dsqvHeader.verband)}" oninput="setS('dsqvHeader','verband',this.value)"></div>
+    <div class="field"><label>DSQV – Adresse/Bank (Kopfzeile)</label><input type="text" value="${esc(s.dsqvHeader.adresse)}" oninput="setS('dsqvHeader','adresse',this.value)"></div>
+    <div class="field"><label>DSQV – Versionszeile</label><input type="text" value="${esc(s.dsqvHeader.version)}" oninput="setS('dsqvHeader','version',this.value)"></div>
+    <div class="field"><label>ESF – Rückgabe-Adresse (Fußzeile)</label><textarea oninput="setS('esfHeader','retour',this.value)">${esc(s.esfHeader.retour)}</textarea></div>
+  </div>
+
+  <div class="card">
+    <h2>Logos & Unterschrift <span class="sub">– erscheinen auf dem gedruckten Formular</span></h2>
+    <div class="row">
+      ${imgSlot("Logo DSQV","logoDSQV")}
+      ${imgSlot("Logo ESF","logoESF")}
+      ${imgSlot("Unterschrift","signatur")}
+    </div>
+    <p class="muted" style="margin-bottom:0">PNG (am besten mit transparentem Hintergrund) oder JPG. Die Unterschrift wird auf dem Formular oberhalb der Unterschriftslinie eingesetzt. Bilder werden lokal in der Datenbank gespeichert und sind im JSON-Backup enthalten.</p>
+  </div>
+
+  <div class="card">
+    <h2>Datensicherung</h2>
+    <div class="toolbar" style="margin:0">
+      <button class="btn" onclick="exportJSON()">⬇ Backup exportieren (JSON)</button>
+      <label class="btn" style="cursor:pointer">⬆ Backup importieren<input type="file" accept=".json" style="display:none" onchange="importJSON(this)"></label>
+      <div class="spacer"></div>
+      <button class="btn danger" onclick="resetAll()">Alles zurücksetzen</button>
+    </div>
+    <p class="muted" style="margin-bottom:0">Alle Daten liegen lokal in diesem Browser (Datenbank). Für Umzug/Sicherung nutze das JSON-Backup. Jede Sicherung erhält automatisch Datum und Uhrzeit im Dateinamen (z. B. reisekosten-backup-2026-09-14_15-30.json), sodass nichts überschrieben wird.</p>
+  </div>`;
+  renderLocEditor();
+}
+function setS(group,key,val){ DB.settings[group][key]=val; saveDB(); }
+
+function imgSlot(title,key){
+  const src=DB.settings.images[key];
+  return `<div class="col field"><label>${title}</label>
+    <div class="imgbox">${src?`<img src="${src}" alt="${esc(title)}">`:'<span class="muted">kein Bild</span>'}</div>
+    <div style="display:flex;gap:6px;margin-top:6px">
+      <label class="btn sm" style="cursor:pointer">${src?'Ersetzen':'Bild wählen'}<input type="file" accept="image/*" style="display:none" onchange="importImage('${key}',this)"></label>
+      ${src?`<button class="btn sm danger" onclick="removeImage('${key}')">Entfernen</button>`:''}
+    </div></div>`;
+}
+function importImage(key,inp){ const f=inp.files[0]; if(!f) return;
+  if(f.size>3*1024*1024){ alert("Bild ist größer als 3 MB – bitte ein kleineres/komprimiertes Bild verwenden."); inp.value=""; return; }
+  const r=new FileReader(); r.onload=()=>{ DB.settings.images[key]=r.result; saveDB(); renderSettings(); showTab("settings"); };
+  r.onerror=()=>alert("Bild konnte nicht gelesen werden."); r.readAsDataURL(f); }
+function removeImage(key){ if(!confirm("Bild wirklich entfernen?")) return; DB.settings.images[key]=""; saveDB(); renderSettings(); showTab("settings"); }
+
+function renderLocEditor(){
+  const box=document.getElementById("locEditor");
+  box.innerHTML=DB.locations.map((l,i)=>`
+    <div class="locrow">
+      <input type="text" value="${esc(l.name)}" oninput="editLoc(${i},'name',this.value)">
+      <input type="number" step="0.1" value="${l.km}" oninput="editLoc(${i},'km',num(this.value))" style="text-align:center">
+      <div class="kmg">${(l.km*2).toLocaleString("de-DE")} km</div>
+      <button class="btn sm danger" onclick="rmLoc(${i})">✕</button>
+    </div>`).join("");
+}
+function editLoc(i,k,v){ DB.locations[i][k]=v; saveDB(); if(k==="km") renderLocEditor(); }
+function addLoc(){ DB.locations.push({id:"loc"+Date.now(),name:"",km:0}); saveDB(); renderLocEditor(); }
+function rmLoc(i){ DB.locations.splice(i,1); saveDB(); renderLocEditor(); }
+
+function reasonEditor(title,key){
+  const arr=DB.settings.begruendungen[key];
+  return `<div style="margin-bottom:14px"><label style="font-weight:700">${title}</label>
+    <div id="reasons_${key}">${arr.map((t,i)=>`<div class="reasonrow">
+      <input type="text" value="${esc(t)}" oninput="editReason('${key}',${i},this.value)">
+      <button class="btn sm danger" onclick="rmReason('${key}',${i})">✕</button></div>`).join("")}</div>
+    <button class="btn sm" onclick="addReason('${key}')">＋ Text</button></div>`;
+}
+function editReason(key,i,v){ DB.settings.begruendungen[key][i]=v; saveDB(); }
+function addReason(key){ DB.settings.begruendungen[key].push(""); saveDB(); renderSettings(); showTab("settings"); }
+function rmReason(key,i){ DB.settings.begruendungen[key].splice(i,1); saveDB(); renderSettings(); showTab("settings"); }
+
+/* =======================================================================
+   BACKUP / EXPORT
+   ======================================================================= */
+function stamp(){ const d=new Date(); const p=n=>String(n).padStart(2,"0");
+  return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+"_"+p(d.getHours())+"-"+p(d.getMinutes()); }
+function exportJSON(){
+  const blob=new Blob([JSON.stringify(DB,null,2)],{type:"application/json"});
+  dl(blob,"reisekosten-backup-"+stamp()+".json");
+}
+function importJSON(inp){
+  const f=inp.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{ try{ const d=JSON.parse(r.result); if(!d.settings||!d.entries) throw 0;
+    DB=d; migrateDB(); saveDB(); alert("Backup importiert."); renderSettings(); renderDashboard();
+  }catch(e){ alert("Ungültige Backup-Datei."); } };
+  r.readAsText(f);
+}
+function resetAll(){ if(confirm("Wirklich ALLE Daten löschen und auf Werkseinstellungen zurücksetzen?")){ DB=structuredClone(DEFAULTS); saveDB(); renderSettings(); renderDashboard(); showTab("settings"); } }
+function exportCSV(){
+  const rows=[["Beleg","Verband","Typ","Datum","Zweck/Purpose","Ort/Venue","Betrag EUR","gesendet","erhalten","erhalten am"]];
+  DB.entries.slice().sort((a,b)=>a.belegNr-b.belegNr).forEach(e=>{
+    rows.push([belegRef(e),e.verband,e.typ||"",
+      e.verband==="DSQV"?deDate(e.abfahrtDatum):e.verband==="ESF"?deDate(e.dateFrom):deDate(e.datum),
+      (e.verband==="ESF"?e.purpose:e.zweck)||"",
+      (e.verband==="DSQV"?e.ort:e.verband==="ESF"?e.venue:e.fuerVerband)||"",
+      entryTotal(e).toFixed(2).replace(".",","), e.gesendet?"ja":"nein", e.erhalten?"ja":"nein", e.erhalten?deDate(e.erhaltenAm):""]);
+  });
+  const csv="\uFEFF"+rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(";")).join("\n");
+  dl(new Blob([csv],{type:"text/csv"}),"reisekosten-uebersicht-"+todayISO()+".csv");
+}
+function dl(blob,name){ const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; a.click(); URL.revokeObjectURL(a.href); }
+
+/* =======================================================================
+   PRINT FORMS (offizielles Layout)
+   ======================================================================= */
+function printEntry(id){
+  const e=DB.entries.find(x=>x.id===id);
+  const form = e.verband==="DSQV"? printDSQV(e) : e.verband==="ANSCH"? printAnsch(e) : printESF(e);
+  const bew = e.verband==="DSQV"? bewirtungSheet(e) : "";
+  document.getElementById("printArea").innerHTML = form + bew + belegePrint(e);
+  window.print();
+}
+function printDSQV(e){
+  const c=calcDSQV(e); const s=DB.settings; const st=s.stamm;
+  const mealTxt=(pfx)=>{const parts=[]; if(e[pfx+'F'])parts.push("Frühstück"); if(e[pfx+'M'])parts.push("Mittag"); if(e[pfx+'A'])parts.push("Abend"); return parts.length?"abzgl. "+parts.join(", "):"";};
+  const line=(lab,val,extra="")=>`<tr><td>${lab}${extra?` <span class="small">${extra}</span>`:""}</td><td class="rt">${EUR(val)}</td></tr>`;
+  return `<div class="formsheet">
+    <div class="fh">
+      <div class="lft">
+        ${s.images.logoDSQV?`<img class="fhlogo" src="${s.images.logoDSQV}" alt="DSQV">`:""}
+        <div><h1>${esc(s.dsqvHeader.verband)}</h1>
+          <div class="small">${esc(s.dsqvHeader.adresse)}</div>
+          <div class="small">${esc(s.dsqvHeader.version)}${e.typ==="ausland"?" · <b>Ausland</b>":""}</div></div>
+      </div>
+      <div style="text-align:right"><div class="small">Beleg</div><div style="font-size:15px;font-weight:800">${belegRef(e)}</div></div>
+    </div>
+    <div class="small" style="margin-bottom:6px">Antrag bitte möglichst innerhalb von 6 Wochen stellen und spätestens vor dem 15.1. des Folgejahres / bitte als PDF senden.</div>
+    <table class="kv box" style="margin-bottom:6px">
+      <tr><td class="lab">Name, Vorname</td><td>${esc(st.name)}</td></tr>
+      <tr><td class="lab">Straße, Wohnort</td><td>${esc(st.strasse)}</td></tr>
+      <tr><td class="lab">IBAN / BIC</td><td>${esc(st.iban)}${st.bic?" · "+esc(st.bic):""}</td></tr>
+      <tr><td class="lab">Abfahrt ab Wohnung</td><td>${deDate(e.abfahrtDatum)} ${e.abfahrtZeit||""}</td></tr>
+      <tr><td class="lab">Ankunft an Wohnung</td><td>${deDate(e.ankunftDatum)} ${e.ankunftZeit||""}</td></tr>
+      <tr><td class="lab">Auto-Kennzeichen</td><td>${esc(e.kennzeichen)}</td></tr>
+      <tr><td class="lab">Mitfahrer</td><td>${esc(e.mitfahrer)}</td></tr>
+      <tr><td class="lab">Zweck der Reise</td><td>${esc(e.zweck)}</td></tr>
+      <tr><td class="lab">Ort der Reise</td><td>${esc(e.ort)}</td></tr>
+    </table>
+
+    <div class="secttl">1) Fahrtkosten</div>
+    <table class="stbl">
+      ${line("Benutzung der Bundesbahn (2. Klasse) gemäß Beleg",e.bahn)}
+      ${line("Benutzung Flugzeug gemäß Beleg",e.flug)}
+      ${line("Benutzung Privatwagen",c.kmBetrag,`${num(e.km).toLocaleString("de-DE")} km à ${EUR(e.kmSatz)}`)}
+      ${line("Tankrechnungen gemäß Beleg",e.tank)}
+      ${line("Sonstige Fahrtkosten (Bus, Taxi, Straßenbahn, Parkgebühren)",e.sonstigesFahrt)}
+      <tr class="sumline"><td class="rt">Summe 1)</td><td class="rt">${EUR(c.summe1)}</td></tr>
+    </table>
+
+    <div class="secttl">2) Pauschaler Verpflegungs-Mehraufwand</div>
+    <table class="stbl">
+      ${line("Abwesenheit ≥ 8 Std. (Anreisetag)"+(e.anreiseAktiv?"":" —"),c.anB,mealTxt("an"))}
+      ${line("Abwesenheit 24 Std. × "+num(e.volltage),c.voB,mealTxt("vo"))}
+      ${line("Abwesenheit ≥ 8 Std. (Abreisetag)"+(e.abreiseAktiv?"":" —"),c.abB,mealTxt("ab"))}
+      <tr class="sumline"><td class="rt">Summe 2)</td><td class="rt">${EUR(c.summe2)}</td></tr>
+    </table>
+
+    <div class="secttl">3) Übernachtung & Sonstige Kosten</div>
+    <table class="stbl">
+      ${line(num(e.naechte)+" Nächte – Übernachtungskosten",e.hotel)}
+      ${num(e.bueromaterial)?line("Büromaterial / Internetgebühren",e.bueromaterial):""}
+      ${num(e.parkgebuehren)?line("Parkgebühren",e.parkgebuehren):""}
+      ${num(e.sonstiges)?line("Sonstiges",e.sonstiges,esc(e.sonstigesText)):""}
+      ${num(e.bewirtung)?line("Bewirtung",e.bewirtung):""}
+      ${num(e.trinkgeld)?line("Trinkgeld",e.trinkgeld):""}
+      <tr class="sumline"><td class="rt">Summe 3)</td><td class="rt">${EUR(c.summe3)}</td></tr>
+    </table>
+
+    <table class="stbl" style="margin-top:6px">
+      <tr class="sumline" style="font-size:13px"><td class="rt">Gesamt 1) + 2) + 3)</td><td class="rt">${EUR(c.gesamt)}</td></tr>
+    </table>
+    <div class="small" style="margin-top:6px">Anhängend ${num(e.anlagen)} Stück Belege (bitte nur Originalbelege!). Ich versichere die Richtigkeit meiner Angaben.</div>
+    <div class="sign">
+      <div class="l">${esc(e.ortDatum)}<br>(Ort, Datum)</div>
+      <div class="l">${s.images.signatur?`<img class="sigimg" src="${s.images.signatur}" alt="Unterschrift">`:"&nbsp;"}<br>(Unterschrift Antragsteller)</div>
+    </div>
+
+    ${(e.begReisezweck||e.begHotel||e.begPark)?`
+    <div class="pagebreak"></div>
+    <div class="formsheet">
+      <h1 style="font-size:13px">2. Seite – Begründungen · ${belegRef(e)}</h1>
+      <table class="kv box" style="margin-top:8px">
+        ${e.begReisezweck?`<tr><td class="lab">Begründung Reisezweck</td><td>${esc(e.begReisezweck)}</td></tr>`:""}
+        ${e.begHotel?`<tr><td class="lab">Begründung Hotelkosten</td><td>${esc(e.begHotel)}</td></tr>`:""}
+        ${e.begPark?`<tr><td class="lab">Begründung Parkkosten</td><td>${esc(e.begPark)}</td></tr>`:""}
+      </table>
+    </div>`:""}
+  </div>`;
+}
+function bewirtungSheet(e){
+  const hasB = num(e.bewirtung)>0 || num(e.trinkgeld)>0 || e.bewirtungAnlass || e.bewirtungPersonen || e.bewirtungOrt || e.bewirtungTag;
+  if(!hasB) return "";
+  const sig=DB.settings.images.signatur; const st=DB.settings.stamm;
+  const tag = e.bewirtungTag?deDate(e.bewirtungTag):(e.abfahrtDatum?deDate(e.abfahrtDatum):"");
+  const ort = esc(e.bewirtungOrt || e.ortName || e.ort || st.heimatort || "");
+  const anlass = esc(e.bewirtungAnlass || e.zweck || "");
+  const personen = esc(e.bewirtungPersonen||"").replace(/\n/g,"<br>");
+  const ortDatum = esc(e.ortDatum||"");
+  return `<div class="pagebreak"></div>
+  <div class="bewsheet">
+    <div class="small" style="text-align:right;margin-bottom:4px">Anlage zur Reisekostenabrechnung · ${belegRef(e)}</div>
+    <table class="bewtbl">
+      <tr><td colspan="2">
+        <div class="htitle">Bewirtungskosten</div>
+        <div class="lbl">Angaben zum Nachweis der Höhe und der geschäftlichen Veranlassung von Bewirtungsaufwendungen (§ 4 Abs. 5 Nr. 2 EStG).</div>
+      </td></tr>
+      <tr>
+        <td style="width:50%"><div class="lbl">Tag der Bewirtung:</div><div class="val" style="text-align:center">${tag}</div></td>
+        <td><div class="lbl">Ort der Bewirtung (Name, Anschrift)</div><div class="val" style="text-align:center">${ort}</div></td>
+      </tr>
+      <tr><td colspan="2"><div class="lbl">Anlass der Bewirtung:</div><div class="val">${anlass}</div></td></tr>
+      <tr><td colspan="2" style="height:82px"><div class="lbl">Bewirtete Personen:</div><div class="val">${personen}</div></td></tr>
+      <tr><td colspan="2" style="height:98px">
+        <div class="lbl">Höhe der Aufwendung lt. beigefügter Rechnung:</div>
+        <div style="display:flex;gap:40px;margin-top:40px">
+          <div style="flex:1;display:flex;align-items:baseline;gap:12px"><span>Rechnungsbetrag:</span><span style="flex:1;border-bottom:1px solid #000;font-weight:800;padding:0 0 2px 14px">${EUR(e.bewirtung)}</span></div>
+          <div style="flex:1;display:flex;align-items:baseline;gap:12px"><span>Trinkgeld:</span><span style="flex:1;border-bottom:1px solid #000;font-weight:800;padding:0 0 2px 14px">${EUR(e.trinkgeld)}</span></div>
+        </div>
+      </td></tr>
+      <tr>
+        <td style="height:98px"><div class="lbl">Ort, Datum:</div><div class="val">${ortDatum}</div></td>
+        <td class="bewsig" style="height:98px"><div class="lbl">Unterschrift des Gastgebers:</div>${sig?`<img src="${sig}" alt="Unterschrift">`:""}</td>
+      </tr>
+    </table>
+  </div>`;
+}
+function printESF(e){
+  const c=calcESF(e); const s=DB.settings;
+  const h=x=>num(x.orig)*num(x.rate);
+  const row=(lab,o,homeVal)=>`<tr><td>${lab}</td><td class="rt">${o?num(o.orig).toLocaleString("de-DE",{minimumFractionDigits:2}):""}</td>
+    <td class="rt">${o?num(o.rate):""}</td><td class="rt">${EUR(homeVal!=null?homeVal:h(o))}</td>
+    <td style="text-align:center">${o&&o.receipt?"✓":""}</td></tr>`;
+  return `<div class="formsheet">
+    <div class="fh">
+      <div class="lft">
+        ${s.images.logoESF?`<img class="fhlogo" src="${s.images.logoESF}" alt="ESF">`:""}
+        <h1 style="font-size:14px">European Squash Federation &ndash; EXPENSES CLAIM FORM</h1>
+      </div>
+      <div style="text-align:right"><div class="small">Beleg</div><div style="font-size:15px;font-weight:800">${belegRef(e)}</div></div>
+    </div>
+    <table class="kv box" style="margin:8px 0">
+      <tr><td class="lab">Name of claimant</td><td>${esc(e.name)}</td></tr>
+      <tr><td class="lab">E-mail address</td><td>${esc(e.email)}</td></tr>
+      <tr><td class="lab">Purpose of claim</td><td>${esc(e.purpose)}</td></tr>
+      <tr><td class="lab">Date(s)</td><td>${deDate(e.dateFrom)} &ndash; ${deDate(e.dateTo)}</td></tr>
+      <tr><td class="lab">Venue</td><td>${esc(e.venue)}</td></tr>
+      <tr><td class="lab">Currency of claim</td><td>${esc(e.currency)}</td></tr>
+    </table>
+    <table class="stbl">
+      <tr><th></th><th class="rt">amount (orig.)</th><th class="rt">exch. rate</th><th class="rt">amount (EUR)</th><th style="text-align:center">receipt</th></tr>
+      <tr><td colspan="5" style="background:#f4f4f4;font-weight:700">EXPENSE DETAILS &ndash; TRAVEL</td></tr>
+      ${row("Flights",e.flights)}
+      ${row("Car ("+num(e.car.km).toLocaleString("de-DE")+" km @ "+e.car.satz+" €/km)",null,c.carH)}
+      ${row("Train",e.train1)}
+      ${row("Taxi",e.taxi)}
+      ${row("Other"+(e.otherTravel.label?" ("+esc(e.otherTravel.label)+")":""),e.otherTravel)}
+      <tr class="sumline"><td colspan="3" class="rt">Sub-total Travel</td><td class="rt">${EUR(c.travel)}</td><td></td></tr>
+      <tr><td colspan="5" style="background:#f4f4f4;font-weight:700">ACCOMMODATION & SUBSISTENCE</td></tr>
+      ${row("Accommodation",e.accommodation)}
+      ${row("Meals",e.meals)}
+      ${row("Other"+(e.otherAccom.label?" ("+esc(e.otherAccom.label)+")":""),e.otherAccom)}
+      <tr class="sumline"><td colspan="3" class="rt">Sub-total Accomm & Subsistence</td><td class="rt">${EUR(c.accom)}</td><td></td></tr>
+      <tr><td colspan="5" style="background:#f4f4f4;font-weight:700">ADMINISTRATION COSTS</td></tr>
+      ${row("Postage",e.postage)}
+      ${row("Telephone / Fax",e.telephone)}
+      ${row("Stationery",e.stationery)}
+      ${row("Other"+(e.otherAdmin.label?" ("+esc(e.otherAdmin.label)+")":""),e.otherAdmin)}
+      <tr class="sumline"><td colspan="3" class="rt">Sub-total Admin</td><td class="rt">${EUR(c.admin)}</td><td></td></tr>
+      <tr class="sumline" style="font-size:13px"><td colspan="3" class="rt">TOTAL CLAIM</td><td class="rt">${EUR(c.total)}</td><td></td></tr>
+    </table>
+    <div class="small" style="margin-top:8px">I hereby certify that the above claim only includes out-of-pocket expenses incurred on behalf of ESF business, for which I am entitled to claim within the official ESF expenses guidelines. All receipts for these expenses are enclosed.</div>
+    <div class="sign"><div class="l">${esc(e.ortDatumName)}<br>(Place, date / Name)</div><div class="l">${s.images.signatur?`<img class="sigimg" src="${s.images.signatur}" alt="Signature">`:"&nbsp;"}<br>(Signature)</div></div>
+    <div class="small" style="margin-top:14px;border-top:1px solid #999;padding-top:4px">${esc(s.esfHeader.retour)}</div>
+  </div>`;
+}
+
+function printAnsch(e){
+  const c=calcAnsch(e); const s=DB.settings; const st=s.stamm;
+  const rows=(e.items||[]).map((it,i)=>`<tr>
+    <td class="rt">${i+1}</td>
+    <td>${esc(it.bez)}</td>
+    <td>${esc(it.haendler)}</td>
+    <td style="text-align:center">${deDate(it.datum)}</td>
+    <td class="rt">${num(it.menge).toLocaleString("de-DE")}</td>
+    <td class="rt">${EUR(num(it.einzel))}</td>
+    <td class="rt">${EUR(c.items[i])}</td></tr>`).join("");
+  return `<div class="formsheet">
+    <div class="fh">
+      <div class="lft">
+        ${s.images.logoDSQV?`<img class="fhlogo" src="${s.images.logoDSQV}" alt="">`:""}
+        <div><h1>${esc(s.dsqvHeader.verband)}</h1>
+          <div class="small">${esc(s.dsqvHeader.adresse)}</div>
+          <div class="small">Anschaffungs-/Auslagenerstattung</div></div>
+      </div>
+      <div style="text-align:right"><div class="small">Beleg</div><div style="font-size:15px;font-weight:800">${belegRef(e)}</div></div>
+    </div>
+    <table class="kv box" style="margin:6px 0">
+      <tr><td class="lab">Name, Vorname</td><td>${esc(st.name)}</td></tr>
+      <tr><td class="lab">Straße, Wohnort</td><td>${esc(st.strasse)}</td></tr>
+      <tr><td class="lab">IBAN / BIC</td><td>${esc(st.iban)}${st.bic?" · "+esc(st.bic):""}</td></tr>
+      <tr><td class="lab">Verwendungszweck / Anlass</td><td>${esc(e.zweck)}</td></tr>
+      <tr><td class="lab">Angeschafft für</td><td>${esc(e.fuerVerband)}</td></tr>
+    </table>
+    <table class="stbl">
+      <tr><th class="rt">Nr.</th><th>Bezeichnung</th><th>Händler / Lieferant</th><th style="text-align:center">Datum</th><th class="rt">Menge</th><th class="rt">Einzelpreis</th><th class="rt">Betrag</th></tr>
+      ${rows||`<tr><td colspan="7" style="text-align:center;color:#666">keine Positionen</td></tr>`}
+      <tr class="sumline"><td colspan="6" class="rt">Gesamt-Erstattungsbetrag</td><td class="rt">${EUR(c.total)}</td></tr>
+    </table>
+    <div class="small" style="margin-top:8px">Ich versichere, dass ich die oben aufgeführten Gegenstände/Auslagen für den Verband beschafft und die Beträge selbst verauslagt habe. Die zugehörigen Belege sind beigefügt.</div>
+    <div class="sign">
+      <div class="l">${esc(e.ortDatum)}<br>(Ort, Datum)</div>
+      <div class="l">${s.images.signatur?`<img class="sigimg" src="${s.images.signatur}" alt="Unterschrift">`:"&nbsp;"}<br>(Unterschrift)</div>
+    </div>
+  </div>`;
+}
+
+/* =======================================================================
+   INIT
+   ======================================================================= */
+bootAuth();
+if(!sbConfigured() || !AUTH) showGate();
+else startApp();
+</script>
+</body>
+</html>
