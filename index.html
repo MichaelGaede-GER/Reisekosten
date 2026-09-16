@@ -452,13 +452,13 @@ function migrateDB(){
   });
   // leere Belege entfernen
   DB.entries = DB.entries.filter(e=>!isEmptyDraft(e));
-  // einmalige Umstellung auf monatsbasierte Belegnummern
-  if(DB.numScheme!=="monthly-v1"){
-    DB.entries.forEach(e=>{ if(!e.belegMonat) e.belegMonat=((e.datum||todayISO())+"").slice(0,7); if(!e.jahr) e.jahr=+e.belegMonat.slice(0,4); });
+  // einmalige Umstellung auf monatsbasierte Belegnummern (Monat = Reisedatum)
+  if(DB.numScheme!=="monthly-v2"){
+    DB.entries.forEach(e=>{ if(!e.belegMonat) e.belegMonat=((e.datum||todayISO())+"").slice(0,7); e.jahr=belegYM(e).y; });
     const groups={};
     DB.entries.filter(hasContent).forEach(e=>{ const b=bucketOf(e); (groups[b]=groups[b]||[]).push(e); });
     Object.values(groups).forEach(arr=>{ arr.sort((a,b)=>(a.belegNr-b.belegNr)||(a.id<b.id?-1:1)); arr.forEach((e,i)=>e.belegNr=i+1); });
-    DB.numScheme="monthly-v1";
+    DB.numScheme="monthly-v2";
   }
 }
 function loadLocalOrDefaults(){
@@ -536,7 +536,8 @@ function renderList(){
 function entryTotal(e){ return e.verband==="DSQV"?calcDSQV(e).gesamt : e.verband==="ANSCH"?calcAnsch(e).total : calcESF(e).total; }
 function belegPrefix(e){ return e.verband==="ESF"?"ESF" : e.verband==="ANSCH"?"DSQVA" : "DSQV"; }
 function pad2(n){ return String(n).padStart(2,"0"); }
-function belegYM(e){ const s=(e&&e.belegMonat)||((e&&e.datum)||todayISO()).slice(0,7); const p=s.split("-"); return {y:+p[0], m:+p[1], s:p[0]+"-"+pad2(+p[1])}; }
+function belegDate(e){ if(e.verband==="DSQV") return e.abfahrtDatum||""; if(e.verband==="ESF") return e.dateFrom||""; return ""; }
+function belegYM(e){ const raw=belegDate(e)||(e&&e.belegMonat)||((e&&e.datum)||todayISO()); const s=(raw+"").slice(0,7); const p=s.split("-"); return {y:+p[0], m:+p[1], s:p[0]+"-"+pad2(+p[1])}; }
 function bucketOf(e){ return e.verband+"|"+belegYM(e).s; }
 function belegRef(e){ const ym=belegYM(e); return `${belegPrefix(e)}-MG-${ym.y}-${pad2(ym.m)}-${pad2(e.belegNr)}`; }
 
@@ -588,6 +589,13 @@ function freeNrOptions(e){
 function setBelegMonat(val){
   const e=E(); if(!val) { renderForm(); return; }
   const oldB=bucketOf(e); e.belegMonat=val; e.jahr=+val.split("-")[0];
+  const newB=bucketOf(e);
+  if(newB!==oldB) e.belegNr=nextBelegNr(newB, e.id); else normalizeNr(e);
+  saveDB(); renderForm(); renderDashboard();
+}
+function setBelegDate(field,val){
+  const e=E(); const oldB=bucketOf(e); e[field]=val;
+  const ym=belegYM(e); e.jahr=ym.y;
   const newB=bucketOf(e);
   if(newB!==oldB) e.belegNr=nextBelegNr(newB, e.id); else normalizeNr(e);
   saveDB(); renderForm(); renderDashboard();
@@ -732,8 +740,10 @@ function formHeader(e,title){
     <div style="flex:1"><h2 style="margin:0">${title}</h2>
       <div style="margin-top:6px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
         <div style="font-size:18px;font-weight:800;letter-spacing:.3px">${belegRef(e)}</div>
-        <label class="muted" style="display:flex;align-items:center;gap:5px;font-size:12px">Monat
-          <input type="month" value="${belegYM(e).s}" onchange="setBelegMonat(this.value)" style="width:auto;padding:4px 6px"></label>
+        ${e.verband==="ANSCH"
+          ? `<label class="muted" style="display:flex;align-items:center;gap:5px;font-size:12px">Monat
+               <input type="month" value="${belegYM(e).s}" onchange="setBelegMonat(this.value)" style="width:auto;padding:4px 6px"></label>`
+          : `<span class="muted" style="font-size:12px">Monat ${pad2(belegYM(e).m)}/${belegYM(e).y} <span style="opacity:.7">(aus ${e.verband==="DSQV"?"Abfahrtsdatum":"Startdatum"})</span></span>`}
         <label class="muted" style="display:flex;align-items:center;gap:5px;font-size:12px">lfd. Nr.
           <select onchange="setBelegNr(this.value)" title="Freie laufende Nummer im Monat wählen" style="width:auto;padding:4px 22px 4px 8px;font-weight:700">
             ${freeNrOptions(e).map(n=>`<option value="${n}" ${n===e.belegNr?"selected":""}>${pad2(n)}</option>`).join("")}
@@ -763,7 +773,7 @@ function formDSQV(e){
     <div class="field"><label>Ort der Reise <span class="hint">(Ort + Name der Veranstaltung – Auswahl füllt die km automatisch)</span></label>
       <input type="text" list="locList" value="${esc(e.ort)}" oninput="onLocInput(this.value)"></div>
     <div class="row">
-      <div class="col field"><label>Abfahrt ab Wohnung – Datum</label><input type="date" value="${e.abfahrtDatum||''}" oninput="up('abfahrtDatum',this.value,false)"></div>
+      <div class="col field"><label>Abfahrt ab Wohnung – Datum <span class="muted" style="font-weight:400">(bestimmt die Beleg-Nr.)</span></label><input type="date" value="${e.abfahrtDatum||''}" onchange="setBelegDate('abfahrtDatum',this.value)"></div>
       <div class="col field"><label>Zeit</label><input type="time" value="${e.abfahrtZeit||''}" oninput="up('abfahrtZeit',this.value,false)"></div>
       <div class="col field"><label>Ankunft an Wohnung – Datum</label><input type="date" value="${e.ankunftDatum||''}" oninput="up('ankunftDatum',this.value,false)"></div>
       <div class="col field"><label>Zeit</label><input type="time" value="${e.ankunftZeit||''}" oninput="up('ankunftZeit',this.value,false)"></div>
@@ -914,7 +924,7 @@ function formESF(e){
     <div class="field"><label>Venue</label><input type="text" list="locList" value="${esc(e.venue)}" oninput="up('venue',this.value,false)"></div>
     ${locDatalist()}
     <div class="row">
-      <div class="col field"><label>Date from</label><input type="date" value="${e.dateFrom||''}" oninput="up('dateFrom',this.value,false)"></div>
+      <div class="col field"><label>Date from <span class="muted" style="font-weight:400">(bestimmt die Beleg-Nr.)</span></label><input type="date" value="${e.dateFrom||''}" onchange="setBelegDate('dateFrom',this.value)"></div>
       <div class="col field"><label>Date to</label><input type="date" value="${e.dateTo||''}" oninput="up('dateTo',this.value,false)"></div>
       <div class="col field"><label>Currency of claim</label><input type="text" value="${esc(e.currency)}" oninput="up('currency',this.value,false)"></div>
     </div>
