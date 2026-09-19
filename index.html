@@ -412,7 +412,7 @@ const SEED_LOCATIONS = [
 
 const DEFAULTS = {
   settings:{
-    stamm:{ name:"Gäde, Michael", strasse:"Hemsbacher Straße 38, 63755 Alzenau",
+    stamm:{ name:"Gäde, Michael", position:"", strasse:"Hemsbacher Straße 38, 63755 Alzenau",
             iban:"DE86 1001 0178 1068 3107 48", bic:"", kennzeichen:"BO-GX 6351",
             heimatort:"Alzenau", email:"michael.gaede@europeansquash.com" },
     saetze:{ kmSatz:0.30, anreise:14, volltag:28, abreise:14,
@@ -439,6 +439,7 @@ function dbKey(){ return "rka_db_"+((AUTH&&AUTH.user&&AUTH.user.id)||"local"); }
 function migrateDB(){
   DB.settings = Object.assign(structuredClone(DEFAULTS.settings), DB.settings||{});
   DB.settings.images = Object.assign({logoDSQV:"",logoESF:"",signatur:""}, DB.settings.images||{});
+  DB.settings.stamm = Object.assign({position:""}, DB.settings.stamm||{});
   DB.counters = Object.assign({DSQV:1,ESF:1,ANSCH:1}, DB.counters||{});
   DB.locations = DB.locations||[];
   DB.entries = DB.entries||[];
@@ -540,6 +541,8 @@ function belegDate(e){ if(e.verband==="DSQV") return e.abfahrtDatum||""; if(e.ve
 function belegYM(e){ const raw=belegDate(e)||(e&&e.belegMonat)||((e&&e.datum)||todayISO()); const s=(raw+"").slice(0,7); const p=s.split("-"); return {y:+p[0], m:+p[1], s:p[0]+"-"+pad2(+p[1])}; }
 function bucketOf(e){ return e.verband+"|"+belegYM(e).s; }
 function belegRef(e){ const ym=belegYM(e); return `${belegPrefix(e)}-MG-${ym.y}-${pad2(ym.m)}-${pad2(e.belegNr)}`; }
+function posSuffix(){ const p=DB.settings.stamm.position; return p?" – "+esc(p):""; }
+function nameWithPos(st){ return esc(st.name)+posSuffix(); }
 
 /* ---------- status toggles (Geldeingang / gesendet) ---------- */
 function applyErhalten(e,val){ e.erhalten=val; e.erhaltenAm = val ? (e.erhaltenAm||todayISO()) : ""; }
@@ -773,7 +776,7 @@ function formDSQV(e){
     <div class="field"><label>Ort der Reise <span class="hint">(Ort + Name der Veranstaltung – Auswahl füllt die km automatisch)</span></label>
       <input type="text" list="locList" value="${esc(e.ort)}" oninput="onLocInput(this.value)"></div>
     <div class="row">
-      <div class="col field"><label>Abfahrt ab Wohnung – Datum <span class="muted" style="font-weight:400">(bestimmt die Beleg-Nr.)</span></label><input type="date" value="${e.abfahrtDatum||''}" onchange="setBelegDate('abfahrtDatum',this.value)"></div>
+      <div class="col field"><label>Abfahrt ab Wohnung – Datum</label><input type="date" value="${e.abfahrtDatum||''}" onchange="setBelegDate('abfahrtDatum',this.value)"><div class="hint" style="margin-top:3px">bestimmt die Beleg-Nr.</div></div>
       <div class="col field"><label>Zeit</label><input type="time" value="${e.abfahrtZeit||''}" oninput="up('abfahrtZeit',this.value,false)"></div>
       <div class="col field"><label>Ankunft an Wohnung – Datum</label><input type="date" value="${e.ankunftDatum||''}" oninput="up('ankunftDatum',this.value,false)"></div>
       <div class="col field"><label>Zeit</label><input type="time" value="${e.ankunftZeit||''}" oninput="up('ankunftZeit',this.value,false)"></div>
@@ -924,7 +927,7 @@ function formESF(e){
     <div class="field"><label>Venue</label><input type="text" list="locList" value="${esc(e.venue)}" oninput="up('venue',this.value,false)"></div>
     ${locDatalist()}
     <div class="row">
-      <div class="col field"><label>Date from <span class="muted" style="font-weight:400">(bestimmt die Beleg-Nr.)</span></label><input type="date" value="${e.dateFrom||''}" onchange="setBelegDate('dateFrom',this.value)"></div>
+      <div class="col field"><label>Date from</label><input type="date" value="${e.dateFrom||''}" onchange="setBelegDate('dateFrom',this.value)"><div class="hint" style="margin-top:3px">bestimmt die Beleg-Nr.</div></div>
       <div class="col field"><label>Date to</label><input type="date" value="${e.dateTo||''}" oninput="up('dateTo',this.value,false)"></div>
       <div class="col field"><label>Currency of claim</label><input type="text" value="${esc(e.currency)}" oninput="up('currency',this.value,false)"></div>
     </div>
@@ -1200,8 +1203,9 @@ function renderSettings(){
     <h2>Stammdaten <span class="sub">– erscheinen automatisch im Formular</span></h2>
     <div class="row">
       <div class="col field"><label>Name, Vorname</label><input type="text" value="${esc(s.stamm.name)}" oninput="setS('stamm','name',this.value)"></div>
-      <div class="col field"><label>Heimatort (für „Ort, Datum")</label><input type="text" value="${esc(s.stamm.heimatort)}" oninput="setS('stamm','heimatort',this.value)"></div>
+      <div class="col field"><label>Position / Funktion <span class="hint">(erscheint hinter dem Namen)</span></label><input type="text" value="${esc(s.stamm.position||'')}" oninput="setS('stamm','position',this.value)" placeholder="z. B. Sportwart"></div>
     </div>
+    <div class="field"><label>Heimatort (für „Ort, Datum")</label><input type="text" value="${esc(s.stamm.heimatort)}" oninput="setS('stamm','heimatort',this.value)"></div>
     <div class="field"><label>Straße, Wohnort</label><input type="text" value="${esc(s.stamm.strasse)}" oninput="setS('stamm','strasse',this.value)"></div>
     <div class="row">
       <div class="col field"><label>IBAN</label><input type="text" value="${esc(s.stamm.iban)}" oninput="setS('stamm','iban',this.value)"></div>
@@ -1357,6 +1361,11 @@ function printEntry(id){
   const form = e.verband==="DSQV"? printDSQV(e) : e.verband==="ANSCH"? printAnsch(e) : printESF(e);
   const bew = e.verband==="DSQV"? bewirtungSheet(e) : "";
   document.getElementById("printArea").innerHTML = form + bew + belegePrint(e);
+  const prevTitle=document.title;
+  document.title = belegRef(e);           // -> Vorschlag als PDF-Dateiname
+  const restore=()=>{ document.title=prevTitle; window.removeEventListener("afterprint",restore); };
+  window.addEventListener("afterprint", restore);
+  setTimeout(()=>{ if(document.title!==prevTitle) document.title=prevTitle; }, 60000);
   window.print();
 }
 function printDSQV(e){
@@ -1375,7 +1384,7 @@ function printDSQV(e){
     </div>
     <div class="small" style="margin-bottom:6px">Antrag bitte möglichst innerhalb von 6 Wochen stellen und spätestens vor dem 15.1. des Folgejahres / bitte als PDF senden.</div>
     <table class="kv box" style="margin-bottom:6px">
-      <tr><td class="lab">Name, Vorname</td><td>${esc(st.name)}</td></tr>
+      <tr><td class="lab">Name, Vorname</td><td>${nameWithPos(st)}</td></tr>
       <tr><td class="lab">Straße, Wohnort</td><td>${esc(st.strasse)}</td></tr>
       <tr><td class="lab">IBAN / BIC</td><td>${esc(st.iban)}${st.bic?" · "+esc(st.bic):""}</td></tr>
       <tr><td class="lab">Abfahrt ab Wohnung</td><td>${deDate(e.abfahrtDatum)} ${e.abfahrtZeit||""}</td></tr>
@@ -1488,7 +1497,7 @@ function printESF(e){
       <div style="text-align:right"><div class="small">Beleg</div><div style="font-size:15px;font-weight:800">${belegRef(e)}</div></div>
     </div>
     <table class="kv box" style="margin:8px 0">
-      <tr><td class="lab">Name of claimant</td><td>${esc(e.name)}</td></tr>
+      <tr><td class="lab">Name of claimant</td><td>${esc(e.name)}${posSuffix()}</td></tr>
       <tr><td class="lab">E-mail address</td><td>${esc(e.email)}</td></tr>
       <tr><td class="lab">Purpose of claim</td><td>${esc(e.purpose)}</td></tr>
       <tr><td class="lab">Date(s)</td><td>${deDate(e.dateFrom)} &ndash; ${deDate(e.dateTo)}</td></tr>
@@ -1544,7 +1553,7 @@ function printAnsch(e){
       <div style="text-align:right"><div class="small">Beleg</div><div style="font-size:15px;font-weight:800">${belegRef(e)}</div></div>
     </div>
     <table class="kv box" style="margin:6px 0">
-      <tr><td class="lab">Name, Vorname</td><td>${esc(st.name)}</td></tr>
+      <tr><td class="lab">Name, Vorname</td><td>${nameWithPos(st)}</td></tr>
       <tr><td class="lab">Straße, Wohnort</td><td>${esc(st.strasse)}</td></tr>
       <tr><td class="lab">IBAN / BIC</td><td>${esc(st.iban)}${st.bic?" · "+esc(st.bic):""}</td></tr>
       <tr><td class="lab">Verwendungszweck / Anlass</td><td>${esc(e.zweck)}</td></tr>
