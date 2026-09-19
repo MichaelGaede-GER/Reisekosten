@@ -126,6 +126,11 @@ table.list tr:hover td{background:#fafcfd}
 .formsheet .box{border:1px solid #000}
 .formsheet .stbl td,.formsheet .stbl th{border:1px solid #999;padding:3px 6px}
 .formsheet .stbl th{background:#eee;text-align:left;font-size:10px}
+.formsheet .stbl .kto{width:64px;text-align:left}
+.formsheet .stbl .ct{width:46px;text-align:center}
+.formsheet .stbl .subrow td{border-top:none;color:#333;font-size:8.5px;padding-top:0}
+.formsheet .stbl .barrow td{background:#f6dfc0;font-weight:700}
+.formsheet .redline{color:#b42318;font-size:9px;margin:2px 0 6px;font-weight:600}
 .formsheet .rt{text-align:right;font-variant-numeric:tabular-nums}
 .formsheet .secttl{font-weight:800;background:#e8e8e8;padding:4px 6px;margin-top:8px;border:1px solid #999}
 .formsheet .sumline{font-weight:800}
@@ -419,7 +424,7 @@ const DEFAULTS = {
              fruehstueck:5.60, mittag:11.20, abend:11.20, esfCarSatz:0.32 },
     dsqvHeader:{ verband:"Deutscher Squash Verband e.V.",
                  adresse:"DSQV, Amselweg 10, 46395 Bocholt   IBAN: DE25428600030248629400   BIC: BOVBDE3MXXX",
-                 version:"Erstattungsformular (Version ab 1.04.2026)" },
+                 version:"Erstattungsformular (Version ab 1.10.2021)" },
     esfHeader:{ retour:"Please return to Marcel Borst, Operations Manager, European Squash Federation, Solihull Arden Club, Sharmans Cross Road, Solihull, B91 1RG, UK. Email - info@europeansquash.com. Tel: +(44) 121 725 6527" },
     images:{ logoDSQV:"", logoESF:"", signatur:"" },
     begruendungen:{
@@ -445,6 +450,7 @@ function migrateDB(){
   DB.entries = DB.entries||[];
   DB.entries.forEach(e=>{
     if(!Array.isArray(e.belege)) e.belege=[];
+    if(e.verband==="DSQV" && (!e.konto || typeof e.konto!=="object")) e.konto={};
     if(e.verband==="ANSCH" && !Array.isArray(e.items)) e.items=[];
     if(e.verband==="ESF"){
       if(e.train2){ if((!e.train1||!num(e.train1.orig)) && num(e.train2.orig)) e.train1=e.train2; delete e.train2; }
@@ -619,7 +625,7 @@ function createEntry(verband,typ){
       naechte:0,hotel:0,
       bueromaterial:0,parkgebuehren:0,sonstiges:0,sonstigesText:"",bewirtung:0,trinkgeld:0,
       bewirtungOrt:"",bewirtungAnlass:"",bewirtungPersonen:"",bewirtungTag:"",
-      begReisezweck:"",begHotel:"",begPark:"",
+      begReisezweck:"",begHotel:"",begPark:"", konto:{},
       anlagen:1, ortDatum:DB.settings.stamm.heimatort+", "+deDate(todayISO()) });
   } else if(verband==="ANSCH"){
     Object.assign(e,{ zweck:"", fuerVerband:"DSQV",
@@ -691,6 +697,7 @@ function calcAnsch(e){
 function E(){ return DB.entries.find(x=>x.id===currentId); }
 function up(field,val,recalc=true){ const e=E(); e[field]=val; saveDB(); if(recalc) refreshCalc(); }
 function upPath(obj,key,val){ const e=E(); e[obj][key]=val; saveDB(); refreshCalc(); }
+function upKonto(key,val){ const e=E(); if(!e.konto) e.konto={}; e.konto[key]=val; saveDB(); }
 
 function renderForm(){
   const e=E();
@@ -836,6 +843,33 @@ function formDSQV(e){
   </div>
 
   <div class="card">
+    <div class="sec">Konto / Kostenstelle je Position <span class="sub" style="font-weight:400">– erscheint in der Spalte „Konto" auf dem Formular</span></div>
+    <div class="row">
+      ${kontoInput(e,"bahn","1) Bundesbahn")}
+      ${kontoInput(e,"flug","1) Flugzeug")}
+      ${kontoInput(e,"pkw","1) Privatwagen")}
+    </div>
+    <div class="row">
+      ${kontoInput(e,"tank","1) Tankrechnungen")}
+      ${kontoInput(e,"sonstFahrt","1) Sonstige Fahrtkosten")}
+    </div>
+    <div class="row">
+      ${kontoInput(e,"anreise","2) Anreisetag")}
+      ${kontoInput(e,"volltag","2) Volle Tage")}
+      ${kontoInput(e,"abreise","2) Abreisetag")}
+    </div>
+    <div class="row">
+      ${kontoInput(e,"naechte","3) Übernachtung")}
+      ${kontoInput(e,"buero","3) Büromaterial/Internet")}
+      ${kontoInput(e,"park","3) Parkgebühren")}
+    </div>
+    <div class="row">
+      ${kontoInput(e,"sonstiges","3) Sonstiges")}
+      ${kontoInput(e,"bewirtung","3) Bewirtungen")}
+    </div>
+  </div>
+
+  <div class="card">
     <div class="sec">Begründungen (2. Seite)</div>
     <div class="field"><label>Begründung Reisezweck</label>
       <select onchange="up('begReisezweck',this.value,false)">${begOpts(DB.settings.begruendungen.reisezweck,e.begReisezweck)}</select></div>
@@ -867,6 +901,7 @@ function formDSQV(e){
   </div>`;
 }
 
+function kontoInput(e,key,label){ return `<div class="col field" style="min-width:150px"><label>${label}</label><input type="text" value="${esc((e.konto&&e.konto[key])||'')}" oninput="upKonto('${key}',this.value)" placeholder="Konto / KSt."></div>`; }
 function verpflegungRow(title,base,prefix,e,isCount){
   const aktivField = isCount? "" : base+"Aktiv";
   const cnt = isCount?`<div style="width:90px"><label style="font-size:11px;color:#3a4655;font-weight:600">Anzahl</label>
@@ -1252,7 +1287,7 @@ function renderSettings(){
     <h2>Formular-Kopf & Rückgabe</h2>
     <div class="field"><label>DSQV – Verbandsname</label><input type="text" value="${esc(s.dsqvHeader.verband)}" oninput="setS('dsqvHeader','verband',this.value)"></div>
     <div class="field"><label>DSQV – Adresse/Bank (Kopfzeile)</label><input type="text" value="${esc(s.dsqvHeader.adresse)}" oninput="setS('dsqvHeader','adresse',this.value)"></div>
-    <div class="field"><label>DSQV – Versionszeile</label><input type="text" value="${esc(s.dsqvHeader.version)}" oninput="setS('dsqvHeader','version',this.value)"></div>
+    <div class="field"><label>Erstattungsformular – Version <span class="hint">(Text im Formularkopf, z. B. „Erstattungsformular (Version ab 1.10.2021)")</span></label><input type="text" value="${esc(s.dsqvHeader.version)}" oninput="setS('dsqvHeader','version',this.value)"></div>
     <div class="field"><label>ESF – Rückgabe-Adresse (Fußzeile)</label><textarea oninput="setS('esfHeader','retour',this.value)">${esc(s.esfHeader.retour)}</textarea></div>
   </div>
 
@@ -1370,64 +1405,69 @@ function printEntry(id){
 }
 function printDSQV(e){
   const c=calcDSQV(e); const s=DB.settings; const st=s.stamm;
-  const mealTxt=(pfx)=>{const parts=[]; if(e[pfx+'F'])parts.push("Frühstück"); if(e[pfx+'M'])parts.push("Mittag"); if(e[pfx+'A'])parts.push("Abend"); return parts.length?"abzgl. "+parts.join(", "):"";};
-  const line=(lab,val,extra="")=>`<tr><td>${lab}${extra?` <span class="small">${extra}</span>`:""}</td><td class="rt">${EUR(val)}</td></tr>`;
+  const K=(key)=>esc((e.konto&&e.konto[key])||"");
+  const r3=(desc,val,key,note="")=>`<tr><td>${desc}${note?` <span class="small">${note}</span>`:""}</td><td class="rt">${EUR(val)}</td><td class="kto">${K(key)}</td></tr>`;
+  const r4=(desc,menge,val,key)=>`<tr><td>${desc}</td><td class="ct">${menge}</td><td class="rt">${EUR(val)}</td><td class="kto">${K(key)}</td></tr>`;
+  const meal=(pfx)=>{const mk=x=>e[pfx+x]?"\u2612":"\u2610"; return `<tr class="subrow"><td colspan="4">abz\u00fcgl.: ${mk("F")} Fr\u00fchst\u00fcck ${EUR(s.saetze.fruehstueck)}   ${mk("M")} Mittagessen ${EUR(s.saetze.mittag)}   ${mk("A")} Abendessen ${EUR(s.saetze.abend)}</td></tr>`;};
+  const nAe=EUR(num(e.naechte)>0? num(e.hotel)/num(e.naechte):0);
   return `<div class="formsheet">
     <div class="fh">
       <div class="lft">
         ${s.images.logoDSQV?`<img class="fhlogo" src="${s.images.logoDSQV}" alt="DSQV">`:""}
-        <div><h1>${esc(s.dsqvHeader.verband)}</h1>
-          <div class="small">${esc(s.dsqvHeader.adresse)}</div>
-          <div class="small">${esc(s.dsqvHeader.version)}${e.typ==="ausland"?" · <b>Ausland</b>":""}</div></div>
+        <div><h1>${esc(s.dsqvHeader.verband)}</h1><div class="small">${esc(s.dsqvHeader.adresse)}</div></div>
       </div>
       <div style="text-align:right"><div class="small">Beleg</div><div style="font-size:15px;font-weight:800">${belegRef(e)}</div></div>
     </div>
-    <div class="small" style="margin-bottom:6px">Antrag bitte möglichst innerhalb von 6 Wochen stellen und spätestens vor dem 15.1. des Folgejahres / bitte als PDF senden.</div>
-    <table class="kv box" style="margin-bottom:6px">
+    <div style="text-align:center;font-weight:800;font-size:14px;margin:3px 0 2px">${esc(s.dsqvHeader.version)}${e.typ==="ausland"?' \u2013 <span style="color:#b42318">Ausland</span>':""}</div>
+    <div class="redline" style="text-align:center;border:1px solid #f0c9c2;padding:3px;border-radius:3px">Antrag bitte m\u00f6glichst innerhalb von 6 Wochen stellen und sp\u00e4testens vor dem 15.1. des Folgejahres / bitte als PDF senden</div>
+    <table class="kv box" style="margin-bottom:4px">
       <tr><td class="lab">Name, Vorname</td><td>${nameWithPos(st)}</td></tr>
-      <tr><td class="lab">Straße, Wohnort</td><td>${esc(st.strasse)}</td></tr>
-      <tr><td class="lab">IBAN / BIC</td><td>${esc(st.iban)}${st.bic?" · "+esc(st.bic):""}</td></tr>
+      <tr><td class="lab">Stra\u00dfe, Wohnort</td><td>${esc(st.strasse)}</td></tr>
+      <tr><td class="lab">IBAN / BIC</td><td>${esc(st.iban)}${st.bic?"   BIC: "+esc(st.bic):""}</td></tr>
       <tr><td class="lab">Abfahrt ab Wohnung</td><td>${deDate(e.abfahrtDatum)} ${e.abfahrtZeit||""}</td></tr>
       <tr><td class="lab">Ankunft an Wohnung</td><td>${deDate(e.ankunftDatum)} ${e.ankunftZeit||""}</td></tr>
-      <tr><td class="lab">Auto-Kennzeichen</td><td>${esc(e.kennzeichen)}</td></tr>
+      <tr><td class="lab">Auto-Kennzeichen/Nummer</td><td>${esc(e.kennzeichen)}</td></tr>
       <tr><td class="lab">Mitfahrer</td><td>${esc(e.mitfahrer)}</td></tr>
       <tr><td class="lab">Zweck der Reise</td><td>${esc(e.zweck)}</td></tr>
       <tr><td class="lab">Ort der Reise</td><td>${esc(e.ort)}</td></tr>
+      <tr><td class="lab"></td><td class="small">(Ort + Name der Veranstaltung, Namen besuchter Personen etc.)</td></tr>
     </table>
-
-    <div class="secttl">1) Fahrtkosten</div>
+    <div style="text-align:center;font-weight:800;font-size:13px;background:#f6dfc0;padding:4px;border:1px solid #999;border-bottom:none">Antrag auf Erstattung von Reise-/Verwaltungskosten</div>
     <table class="stbl">
-      ${line("Benutzung der Bundesbahn (2. Klasse) gemäß Beleg",e.bahn)}
-      ${line("Benutzung Flugzeug gemäß Beleg",e.flug)}
-      ${line("Benutzung Privatwagen",c.kmBetrag,`${num(e.km).toLocaleString("de-DE")} km à ${EUR(e.kmSatz)}`)}
-      ${line("Tankrechnungen gemäß Beleg",e.tank)}
-      ${line("Sonstige Fahrtkosten (Bus, Taxi, Straßenbahn, Parkgebühren)",e.sonstigesFahrt)}
-      <tr class="sumline"><td class="rt">Summe 1)</td><td class="rt">${EUR(c.summe1)}</td></tr>
+      <tr><th>1) Fahrtkosten</th><th class="rt">Betrag</th><th class="kto">Konto</th></tr>
+      ${r3("Benutzung der Bundesbahn einschl. Zuschl\u00e4ge 2. Klasse gem\u00e4\u00df Beleg",e.bahn,"bahn")}
+      ${r3("Benutzung Flugzeug lt. Genehmigung gem\u00e4\u00df Beleg",e.flug,"flug")}
+      ${r3("Benutzung Privatwagen",c.kmBetrag,"pkw",`${num(e.km).toLocaleString("de-DE")} km \u00e0 ${EUR(e.kmSatz)}`)}
+      ${r3("Tankrechnungen gem\u00e4\u00df Beleg",e.tank,"tank")}
+      ${r3("Sonstiges Fahrtkosten (Bus, Taxi, Stra\u00dfenbahn, Parkgeb\u00fchren) gem\u00e4\u00df Beleg",e.sonstigesFahrt,"sonstFahrt")}
+      <tr class="sumline"><td class="rt">Summe 1)</td><td class="rt">${EUR(c.summe1)}</td><td class="kto"></td></tr>
     </table>
-
-    <div class="secttl">2) Pauschaler Verpflegungs-Mehraufwand</div>
-    <table class="stbl">
-      ${line("Abwesenheit ≥ 8 Std. (Anreisetag)"+(e.anreiseAktiv?"":" —"),c.anB,mealTxt("an"))}
-      ${line("Abwesenheit 24 Std. × "+num(e.volltage),c.voB,mealTxt("vo"))}
-      ${line("Abwesenheit ≥ 8 Std. (Abreisetag)"+(e.abreiseAktiv?"":" —"),c.abB,mealTxt("ab"))}
-      <tr class="sumline"><td class="rt">Summe 2)</td><td class="rt">${EUR(c.summe2)}</td></tr>
-    </table>
-
-    <div class="secttl">3) Übernachtung & Sonstige Kosten</div>
-    <table class="stbl">
-      ${line(num(e.naechte)+" Nächte – Übernachtungskosten",e.hotel)}
-      ${num(e.bueromaterial)?line("Büromaterial / Internetgebühren",e.bueromaterial):""}
-      ${num(e.parkgebuehren)?line("Parkgebühren",e.parkgebuehren):""}
-      ${num(e.sonstiges)?line("Sonstiges",e.sonstiges,esc(e.sonstigesText)):""}
-      ${num(e.bewirtung)?line("Bewirtung",e.bewirtung):""}
-      ${num(e.trinkgeld)?line("Trinkgeld",e.trinkgeld):""}
-      <tr class="sumline"><td class="rt">Summe 3)</td><td class="rt">${EUR(c.summe3)}</td></tr>
-    </table>
-
     <table class="stbl" style="margin-top:6px">
-      <tr class="sumline" style="font-size:13px"><td class="rt">Gesamt 1) + 2) + 3)</td><td class="rt">${EUR(c.gesamt)}</td></tr>
+      <tr><th>2) Pauschaler Verpflegungs-Mehraufwand</th><th class="ct">Menge</th><th class="rt">Betrag</th><th class="kto">Konto</th></tr>
+      ${r4("Abwesenheit von mindestens 8 Stunden (Anreisetag)",e.anreiseAktiv?1:0,c.anB,"anreise")}
+      ${meal("an")}
+      ${r4("Abwesenheit von 24 Stunden",num(e.volltage),c.voB,"volltag")}
+      ${meal("vo")}
+      ${r4("Abwesenheit von mindestens 8 Stunden (Abreisetag)",e.abreiseAktiv?1:0,c.abB,"abreise")}
+      ${meal("ab")}
+      <tr class="sumline"><td colspan="2" class="rt">Summe 2)</td><td class="rt">${EUR(c.summe2)}</td><td class="kto"></td></tr>
     </table>
-    <div class="small" style="margin-top:6px">Anhängend ${num(e.anlagen)} Stück Belege (bitte nur Originalbelege!). Ich versichere die Richtigkeit meiner Angaben.</div>
+    <div class="redline">Wurde durch die Automatisierung durch \u201ex\u201c bei mehreren Tagen Essen zu viel subtrahiert, dann bitte unten unter \u201eSonstiges\u201c separat addierend auff\u00fchren.</div>
+    <table class="stbl">
+      <tr><th>3) \u00dcbernachtungs- oder Schlafwagen-Kosten</th><th class="rt">Betrag</th><th class="kto">Konto</th></tr>
+      ${r3(`${num(e.naechte)} N\u00e4chte \u00e0 ${nAe}   gesamt`,e.hotel,"naechte")}
+      <tr class="barrow"><td colspan="3">Sonstige Kosten</td></tr>
+      ${r3("B\u00fcromaterial / Internetgeb\u00fchren",e.bueromaterial,"buero")}
+      ${r3("Parkgeb\u00fchren",e.parkgebuehren,"park")}
+      ${r3("Sonstiges (mit Beschreibung, Begr\u00fcndung / Essens-Abzug s.o.)",e.sonstiges,"sonstiges",esc(e.sonstigesText))}
+      ${r3("Bewirtungen (mit Nennen der Personen und Begr\u00fcndung auf der R\u00fcckseite)",num(e.bewirtung)+num(e.trinkgeld),"bewirtung")}
+      <tr class="sumline"><td class="rt">Summe 3)</td><td class="rt">${EUR(c.summe3)}</td><td class="kto"></td></tr>
+    </table>
+    <table class="stbl" style="margin-top:6px">
+      <tr class="sumline" style="font-size:12px"><td class="rt">Gesamt 1) + 2) + 3)</td><td class="rt">${EUR(c.gesamt)}</td><td class="kto"></td></tr>
+    </table>
+    <div class="small" style="margin-top:8px"><b>Anh\u00e4ngend ${num(e.anlagen)} St\u00fcck Belege</b> (Bitte nur Originalbelege!)</div>
+    <div class="small" style="margin-top:6px;font-weight:700">Ich versichere die Richtigkeit meiner Angaben:</div>
     <div class="sign">
       <div class="l">${esc(e.ortDatum)}<br>(Ort, Datum)</div>
       <div class="l">${s.images.signatur?`<img class="sigimg" src="${s.images.signatur}" alt="Unterschrift">`:"&nbsp;"}<br>(Unterschrift Antragsteller)</div>
