@@ -1442,7 +1442,14 @@ function printEntry(id){
   const restore=()=>{ document.title=prevTitle; window.removeEventListener("afterprint",restore); };
   window.addEventListener("afterprint", restore);
   setTimeout(()=>{ if(document.title!==prevTitle) document.title=prevTitle; }, 60000);
-  window.print();
+  // Erst drucken, wenn ALLE Bilder (Logos, Unterschrift, Belege) fertig geladen sind,
+  // sonst fehlen einzelne Belege im PDF.
+  const imgs=[...document.querySelectorAll("#printArea img")];
+  const waitImg=im=> (im.complete && im.naturalWidth>0) ? Promise.resolve()
+      : new Promise(res=>{ im.addEventListener("load",res,{once:true}); im.addEventListener("error",res,{once:true}); });
+  let done=false; const go=()=>{ if(done) return; done=true; window.print(); };
+  Promise.all(imgs.map(waitImg)).then(go);
+  setTimeout(go, 4000); // Sicherheitsnetz, falls ein Bild hängt
 }
 function printDSQV(e){
   const c=calcDSQV(e); const s=DB.settings; const st=s.stamm;
