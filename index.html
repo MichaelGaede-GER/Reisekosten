@@ -211,15 +211,19 @@ body:not(.authed) header.app,body:not(.authed) main{display:none}
         <option value="ESF">ESF</option>
         <option value="ANSCH">Anschaffungen</option>
       </select>
+      <select id="fltStatus" onchange="renderList()" style="width:auto">
+        <option value="">Alle Status</option>
+        <option value="offen">Noch offen (nicht erhalten)</option>
+        <option value="gesendet_offen">Gesendet, nicht erhalten</option>
+        <option value="erhalten">Erhalten</option>
+        <option value="entwurf">Entwurf (nicht gesendet)</option>
+      </select>
       <select id="fltJahr" onchange="renderList()" style="width:auto"></select>
       <button class="btn sm" onclick="exportCSV()">CSV</button>
     </div>
     <div class="card" style="padding:0;overflow:hidden">
       <table class="list" id="listTbl">
-        <thead><tr>
-          <th>Beleg</th><th>Verband</th><th>Datum</th><th>Zweck / Ort</th>
-          <th class="right">Betrag</th><th>Gesendet</th><th>Erhalten</th><th></th>
-        </tr></thead>
+        <thead id="listHead"></thead>
         <tbody id="listBody"></tbody>
       </table>
       <div class="empty" id="listEmpty" style="display:none">Noch keine Abrechnungen. Lege oben deine erste an.</div>
@@ -511,11 +515,48 @@ function renderStats(){
     <div class="stat"><div class="k">Noch offen</div><div class="v" style="color:var(--amber)">${EUR(offen)}</div></div>
     <div class="stat"><div class="k">DSQV / ESF / Ansch.</div><div class="v">${dsqv} / ${esf} / ${ansch}</div></div>`;
 }
+let sortField="beleg", sortDir="asc";
+function belegSortKey(e){ const ym=belegYM(e); return ym.y*1000000+ym.m*10000+(e.belegNr||0); }
+function sortKey(e){
+  switch(sortField){
+    case "verband": return e.verband;
+    case "datum":   return (belegDate(e)||e.datum||"");
+    case "zweck":   return ((e.verband==="ESF"?e.purpose:e.zweck)||"").toLowerCase();
+    case "betrag":  return entryTotal(e);
+    case "gesendet":return e.gesendet?1:0;
+    case "erhalten":return e.erhalten?1:0;
+    default:        return belegSortKey(e);
+  }
+}
+function listCmp(a,b){
+  const ka=sortKey(a), kb=sortKey(b);
+  let r = ka<kb?-1: ka>kb?1 : 0;
+  if(r===0) r = belegSortKey(a)-belegSortKey(b);
+  return sortDir==="desc"? -r : r;
+}
+function setSort(field){
+  if(sortField===field) sortDir = sortDir==="asc"?"desc":"asc";
+  else { sortField=field; sortDir="asc"; }
+  renderList();
+}
 function renderList(){
   const fv=document.getElementById("fltVerband").value;
   const fy=document.getElementById("fltJahr").value;
+  const fs=(document.getElementById("fltStatus")||{}).value||"";
   let rows=DB.entries.filter(e=>(!fv||e.verband===fv)&&(!fy||String(e.jahr)===fy));
-  rows.sort((a,b)=>(b.belegNr)-(a.belegNr));
+  rows=rows.filter(e=>{
+    if(fs==="offen")          return !e.erhalten;
+    if(fs==="gesendet_offen") return e.gesendet && !e.erhalten;
+    if(fs==="erhalten")       return e.erhalten;
+    if(fs==="entwurf")        return !e.gesendet && !e.erhalten;
+    return true;
+  });
+  rows.sort(listCmp);
+  // Kopf mit klickbaren, sortierbaren Spalten
+  const cols=[["beleg","Beleg"],["verband","Verband"],["datum","Datum"],["zweck","Zweck / Ort"],["betrag","Betrag","right"],["gesendet","Gesendet"],["erhalten","Erhalten"]];
+  const arrow=f=> sortField===f ? (sortDir==="asc"?" ▲":" ▼") : "";
+  const head=document.getElementById("listHead");
+  if(head) head.innerHTML=`<tr>${cols.map(c=>`<th class="${c[2]||''}" style="cursor:pointer;user-select:none;white-space:nowrap" onclick="setSort('${c[0]}')" title="Nach ${c[1]} sortieren">${c[1]}${arrow(c[0])}</th>`).join("")}<th></th></tr>`;
   const body=document.getElementById("listBody");
   document.getElementById("listEmpty").style.display=rows.length?"none":"block";
   body.innerHTML=rows.map(e=>{
