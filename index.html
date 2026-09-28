@@ -648,8 +648,10 @@ function setBelegDate(field,val){
   const ym=belegYM(e); e.jahr=ym.y;
   const newB=bucketOf(e);
   if(newB!==oldB) e.belegNr=nextBelegNr(newB, e.id); else normalizeNr(e);
+  if(e.verband==="DSQV") autoVerpflegung(e);
   saveDB(); renderForm(); renderDashboard();
 }
+function setReise(field,val){ const e=E(); e[field]=val; autoVerpflegung(e); saveDB(); renderForm(); }
 function createEntry(verband,typ){
   const today=todayISO();
   const e = { id:"e"+Date.now(), verband, belegNr:1, jahr:+today.slice(0,4), belegMonat:today.slice(0,7),
@@ -824,10 +826,10 @@ function formDSQV(e){
     <div class="field"><label>Ort der Reise <span class="hint">(Ort + Name der Veranstaltung – Auswahl füllt die km automatisch)</span></label>
       <input type="text" list="locList" value="${esc(e.ort)}" oninput="onLocInput(this.value)"></div>
     <div class="row">
-      <div class="col field"><label>Abfahrt ab Wohnung – Datum</label><input type="date" value="${e.abfahrtDatum||''}" onchange="setBelegDate('abfahrtDatum',this.value)"><div class="hint" style="margin-top:3px">bestimmt die Beleg-Nr.</div></div>
-      <div class="col field"><label>Zeit</label><input type="time" value="${e.abfahrtZeit||''}" oninput="up('abfahrtZeit',this.value,false)"></div>
-      <div class="col field"><label>Ankunft an Wohnung – Datum</label><input type="date" value="${e.ankunftDatum||''}" oninput="up('ankunftDatum',this.value,false)"></div>
-      <div class="col field"><label>Zeit</label><input type="time" value="${e.ankunftZeit||''}" oninput="up('ankunftZeit',this.value,false)"></div>
+      <div class="col field"><label>Abfahrt ab Wohnung – Datum</label><input type="date" value="${e.abfahrtDatum||''}" onchange="setBelegDate('abfahrtDatum',this.value)"><div class="hint" style="margin-top:3px">bestimmt die Beleg-Nr. & Verpflegung</div></div>
+      <div class="col field"><label>Zeit</label><input type="time" value="${e.abfahrtZeit||''}" onchange="setReise('abfahrtZeit',this.value)"></div>
+      <div class="col field"><label>Ankunft an Wohnung – Datum</label><input type="date" value="${e.ankunftDatum||''}" onchange="setReise('ankunftDatum',this.value)"></div>
+      <div class="col field"><label>Zeit</label><input type="time" value="${e.ankunftZeit||''}" onchange="setReise('ankunftZeit',this.value)"></div>
     </div>
     <div class="row">
       <div class="col field"><label>Auto-Kennzeichen</label><input type="text" value="${esc(e.kennzeichen)}" oninput="up('kennzeichen',this.value,false)"></div>
@@ -855,10 +857,16 @@ function formDSQV(e){
 
   <div class="card">
     <div class="sec">2) Pauschaler Verpflegungs-Mehraufwand</div>
-    <p class="muted" style="margin-top:0">Häkchen bei bereitgestellten Mahlzeiten – der Abzug (Frühstück ${EUR(s.fruehstueck)}, Mittag ${EUR(s.mittag)}, Abend ${EUR(s.abend)}) erfolgt automatisch.${e.typ==="ausland"?' <b>Ausland:</b> Sätze bitte an das jeweilige Land anpassen.':''}</p>
-    ${verpflegungRow("Anreisetag (≥ 8 Std.)","anreise","an",e)}
-    ${verpflegungRow("Volle Tage (24 Std.)","volltag","vo",e,true)}
-    ${verpflegungRow("Abreisetag (≥ 8 Std.)","abreise","ab",e)}
+    <p class="muted" style="margin-top:0">Wird automatisch aus <b>Abfahrt</b> und <b>Ankunft</b> (Datum + Uhrzeit) berechnet: Anreise-/Abreisetag je ${EUR(s.anreise)}, volle Tage je ${EUR(s.volltag)}. Häkchen bei bereitgestellten Mahlzeiten (Abzug Frühstück ${EUR(s.fruehstueck)}, Mittag ${EUR(s.mittag)}, Abend ${EUR(s.abend)}).${e.typ==="ausland"?' <b>Ausland:</b> Sätze unten anpassen.':''}</p>
+    <div class="row" style="margin-bottom:6px">
+      <div class="col field"><label>Satz Anreise €</label><input type="number" step="0.01" value="${e.anreiseSatz}" oninput="up('anreiseSatz',this.value)"></div>
+      <div class="col field"><label>Satz volle Tage €</label><input type="number" step="0.01" value="${e.volltagSatz}" oninput="up('volltagSatz',this.value)"></div>
+      <div class="col field"><label>Satz Abreise €</label><input type="number" step="0.01" value="${e.abreiseSatz}" oninput="up('abreiseSatz',this.value)"></div>
+    </div>
+    <div class="notice" style="margin-bottom:8px">Berechnet: ${e.anreiseAktiv?"Anreisetag (1)":""}${num(e.volltage)>0?((e.anreiseAktiv?" · ":"")+num(e.volltage)+" volle Tage"):""}${e.abreiseAktiv?(((e.anreiseAktiv||num(e.volltage)>0)?" · ":"")+"Abreisetag (1)"):""}${(!e.anreiseAktiv&&!num(e.volltage)&&!e.abreiseAktiv)?"kein Anspruch – bitte Abfahrt/Ankunft inkl. Uhrzeit eintragen":""}</div>
+    ${e.anreiseAktiv?mealRow("Anreisetag (≥ 8 Std.) – "+EUR(e.anreiseSatz),"an",e):""}
+    ${num(e.volltage)>0?mealRow(num(e.volltage)+" volle Tage × "+EUR(e.volltagSatz),"vo",e):""}
+    ${e.abreiseAktiv?mealRow("Abreisetag (≥ 8 Std.) – "+EUR(e.abreiseSatz),"ab",e):""}
     <div class="calcbox"><span>Summe 2) Verpflegung</span><span class="amt" id="summe2"></span></div>
   </div>
 
@@ -876,11 +884,22 @@ function formDSQV(e){
       <div class="col field"><label>Sonstiges €</label><input type="number" step="0.01" value="${e.sonstiges}" oninput="up('sonstiges',this.value)"></div>
       <div class="col field" style="flex:2"><label>Beschreibung Sonstiges</label><input type="text" value="${esc(e.sonstigesText)}" oninput="up('sonstigesText',this.value,false)"></div>
     </div>
+    <div class="calcbox"><span>Summe 3) Übernachtung & Sonstiges</span><span class="amt" id="summe3"></span></div>
+  </div>
+
+  <div class="card">
+    <div class="sec">Bewirtung</div>
+    <p class="muted" style="margin-top:0">Bei Bewirtungskosten wird automatisch das amtliche Bewirtungsblatt (§ 4 Abs. 5 Nr. 2 EStG) ans PDF angehängt.</p>
     <div class="row">
-      <div class="col field"><label>Bewirtung €</label><input type="number" step="0.01" value="${e.bewirtung}" oninput="up('bewirtung',this.value)"></div>
+      <div class="col field"><label>Rechnungsbetrag (Bewirtung) €</label><input type="number" step="0.01" value="${e.bewirtung}" oninput="up('bewirtung',this.value)"></div>
       <div class="col field"><label>Trinkgeld €</label><input type="number" step="0.01" value="${e.trinkgeld}" oninput="up('trinkgeld',this.value)"></div>
     </div>
-    <div class="calcbox"><span>Summe 3) Übernachtung & Sonstiges</span><span class="amt" id="summe3"></span></div>
+    <div class="row">
+      <div class="col field"><label>Tag der Bewirtung</label><input type="date" value="${e.bewirtungTag||''}" oninput="up('bewirtungTag',this.value,false)"></div>
+      <div class="col field" style="flex:2"><label>Ort der Bewirtung <span class="hint">(aus Orte-Liste wählbar)</span></label><input type="text" list="locList" value="${esc(e.bewirtungOrt)}" oninput="up('bewirtungOrt',this.value,false)"></div>
+    </div>
+    <div class="field"><label>Anlass der Bewirtung</label><input type="text" value="${esc(e.bewirtungAnlass)}" oninput="up('bewirtungAnlass',this.value,false)"></div>
+    <div class="field"><label>Bewirtete Personen</label><textarea oninput="up('bewirtungPersonen',this.value,false)">${esc(e.bewirtungPersonen)}</textarea></div>
   </div>
 
   <div class="card">
@@ -920,12 +939,6 @@ function formDSQV(e){
       <div class="col field"><label>Begründung Parkkosten</label>
         <select onchange="up('begPark',this.value,false)">${begOpts(DB.settings.begruendungen.park,e.begPark)}</select></div>
     </div>
-    <div class="row" style="border-top:1px solid var(--line);padding-top:12px;margin-top:6px">
-      <div class="col field"><label>Bewirtung – Datum</label><input type="date" value="${e.bewirtungTag||''}" oninput="up('bewirtungTag',this.value,false)"></div>
-      <div class="col field" style="flex:2"><label>Bewirtung – Ort</label><input type="text" value="${esc(e.bewirtungOrt)}" oninput="up('bewirtungOrt',this.value,false)"></div>
-    </div>
-    <div class="field"><label>Bewirtung – Anlass</label><input type="text" value="${esc(e.bewirtungAnlass)}" oninput="up('bewirtungAnlass',this.value,false)"></div>
-    <div class="field"><label>Bewirtung – Personen</label><textarea oninput="up('bewirtungPersonen',this.value,false)">${esc(e.bewirtungPersonen)}</textarea></div>
     <div class="row">
       <div class="col field"><label>Anzahl Belege</label><input type="number" step="1" value="${e.anlagen}" oninput="up('anlagen',this.value,false)"></div>
       <div class="col field" style="flex:2"><label>Ort, Datum (Unterschrift)</label><input type="text" value="${esc(e.ortDatum)}" oninput="up('ortDatum',this.value,false)"></div>
@@ -943,6 +956,23 @@ function formDSQV(e){
 }
 
 function kontoInput(e,key,label){ return `<div class="col field" style="min-width:150px"><label>${label}</label><input type="text" value="${esc((e.konto&&e.konto[key])||'')}" oninput="upKonto('${key}',this.value)" placeholder="Konto / KSt."></div>`; }
+function parseDT(d,t){ if(!d) return null; const dt=new Date(d+"T"+((t&&/^\d{2}:\d{2}/.test(t))?t:"00:00")); return isNaN(dt.getTime())?null:dt; }
+function autoVerpflegung(e){
+  if(e.verband!=="DSQV") return;
+  const dep=parseDT(e.abfahrtDatum,e.abfahrtZeit), arr=parseDT(e.ankunftDatum,e.ankunftZeit);
+  if(!dep||!arr||arr<=dep) return;
+  const d0=parseDT(e.abfahrtDatum,"00:00"), d1=parseDT(e.ankunftDatum,"00:00");
+  const dayDiff=Math.round((d1-d0)/86400000);
+  if(dayDiff<=0){ const hrs=(arr-dep)/3600000; e.anreiseAktiv=hrs>=8; e.volltage=0; e.abreiseAktiv=false; }
+  else { e.anreiseAktiv=true; e.abreiseAktiv=true; e.volltage=Math.max(0,dayDiff-1); }
+}
+function mealRow(title,prefix,e){
+  const cb=(suf,lab)=>`<label class="chk"><input type="checkbox" ${e[prefix+suf]?"checked":""} onchange="up('${prefix+suf}',this.checked)"> ${lab}</label>`;
+  return `<div style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px">
+      <div style="font-weight:700;margin-bottom:4px">${title}</div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center"><span class="muted">abzügl. bereitgestellt:</span> ${cb("F","Frühstück")} ${cb("M","Mittag")} ${cb("A","Abend")}</div>
+    </div>`;
+}
 function verpflegungRow(title,base,prefix,e,isCount){
   const aktivField = isCount? "" : base+"Aktiv";
   const cnt = isCount?`<div style="width:90px"><label style="font-size:11px;color:#3a4655;font-weight:600">Anzahl</label>
@@ -1377,11 +1407,11 @@ function renderLocEditor(){
     <div class="locrow">
       <input type="text" value="${esc(l.name)}" oninput="editLoc(${i},'name',this.value)">
       <input type="number" step="0.1" value="${l.km}" oninput="editLoc(${i},'km',num(this.value))" style="text-align:center">
-      <div class="kmg">${(l.km*2).toLocaleString("de-DE")} km</div>
+      <div class="kmg" id="kmg_${i}">${(l.km*2).toLocaleString("de-DE")} km</div>
       <button class="btn sm danger" onclick="rmLoc(${i})">✕</button>
     </div>`).join("");
 }
-function editLoc(i,k,v){ DB.locations[i][k]=v; saveDB(); if(k==="km") renderLocEditor(); }
+function editLoc(i,k,v){ DB.locations[i][k]=v; saveDB(); if(k==="km"){ const el=document.getElementById("kmg_"+i); if(el) el.textContent=(num(v)*2).toLocaleString("de-DE")+" km"; } }
 function addLoc(){ DB.locations.push({id:"loc"+Date.now(),name:"",km:0}); saveDB(); renderLocEditor(); }
 function rmLoc(i){ DB.locations.splice(i,1); saveDB(); renderLocEditor(); }
 
