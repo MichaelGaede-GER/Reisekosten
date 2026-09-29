@@ -587,7 +587,8 @@ function pad2(n){ return String(n).padStart(2,"0"); }
 function belegDate(e){ if(e.verband==="DSQV") return e.abfahrtDatum||""; if(e.verband==="ESF") return e.dateFrom||""; return ""; }
 function belegYM(e){ const raw=belegDate(e)||(e&&e.belegMonat)||((e&&e.datum)||todayISO()); const s=(raw+"").slice(0,7); const p=s.split("-"); return {y:+p[0], m:+p[1], s:p[0]+"-"+pad2(+p[1])}; }
 function bucketOf(e){ return e.verband+"|"+belegYM(e).s; }
-function belegRef(e){ const ym=belegYM(e); return `${belegPrefix(e)}-MG-${ym.y}-${pad2(ym.m)}-${pad2(e.belegNr)}`; }
+function belegRef(e){ const ym=belegYM(e); return `${belegPrefix(e)}-${ym.y}-${pad2(ym.m)}-${pad2(e.belegNr)}`; }
+function personName(){ const n=(DB.settings.stamm.name||"").trim(); if(n.includes(",")){ const p=n.split(",").map(x=>x.trim()).filter(Boolean); return (p[1]?p[1]+" ":"")+(p[0]||""); } return n; }
 function posSuffix(){ const p=DB.settings.stamm.position; return p?" – "+esc(p):""; }
 function nameWithPos(st){ return esc(st.name)+posSuffix(); }
 
@@ -1468,7 +1469,8 @@ function printEntry(id){
   const bew = e.verband==="DSQV"? bewirtungSheet(e) : "";
   document.getElementById("printArea").innerHTML = form + bew + belegePrint(e);
   const prevTitle=document.title;
-  document.title = belegRef(e);           // -> Vorschlag als PDF-Dateiname
+  const docLabel = e.verband==="ANSCH" ? "Anschaffung" : "Reisekostenabrechnung";
+  document.title = `${docLabel} - ${personName()} - ${belegRef(e)}`;   // -> Vorschlag als PDF-Dateiname
   const restore=()=>{ document.title=prevTitle; window.removeEventListener("afterprint",restore); };
   window.addEventListener("afterprint", restore);
   setTimeout(()=>{ if(document.title!==prevTitle) document.title=prevTitle; }, 60000);
