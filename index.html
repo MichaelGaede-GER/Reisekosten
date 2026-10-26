@@ -1239,8 +1239,16 @@ async function addBelege(inp){
 }
 function bid(){ return "b"+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
 function removeBeleg(id){ const e=E(); if(!confirm("Beleg wirklich entfernen?")) return; e.belege=(e.belege||[]).filter(b=>b.id!==id); saveDB(); renderForm(); }
-function openBeleg(id){ const e=E(); const b=(e.belege||[]).find(x=>x.id===id); if(!b) return;
-  const a=document.createElement("a"); a.href=b.data; a.target="_blank"; a.rel="noopener"; document.body.appendChild(a); a.click(); a.remove(); }
+async function openBeleg(id){
+  const e=E(); const b=(e.belege||[]).find(x=>x.id===id); if(!b||!b.data) return;
+  try{
+    const blob=await (await fetch(b.data)).blob();         // data:-URL -> Blob
+    const url=URL.createObjectURL(blob);                    // blob:-URL darf geöffnet werden
+    const win=window.open(url,"_blank");
+    if(!win){ const a=document.createElement("a"); a.href=url; a.download=b.name||"beleg"; document.body.appendChild(a); a.click(); a.remove(); }
+    setTimeout(()=>URL.revokeObjectURL(url),60000);
+  }catch(err){ console.error(err); alert("Beleg konnte nicht geöffnet werden."); }
+}
 function belegePrint(e){
   const bs=e.belege||[]; if(!bs.length) return "";
   const imgs=bs.filter(b=>b.type==="image"), pdfs=bs.filter(b=>b.type==="pdf");
@@ -1532,14 +1540,17 @@ function printEntry(id){
   const restore=()=>{ document.title=prevTitle; window.removeEventListener("afterprint",restore); };
   window.addEventListener("afterprint", restore);
   setTimeout(()=>{ if(document.title!==prevTitle) document.title=prevTitle; }, 60000);
-  // Erst drucken, wenn ALLE Bilder (Logos, Unterschrift, Belege) fertig geladen sind,
-  // sonst fehlen einzelne Belege im PDF.
-  const imgs=[...document.querySelectorAll("#printArea img")];
-  const waitImg=im=> (im.complete && im.naturalWidth>0) ? Promise.resolve()
-      : new Promise(res=>{ im.addEventListener("load",res,{once:true}); im.addEventListener("error",res,{once:true}); });
-  let done=false; const go=()=>{ if(done) return; done=true; window.print(); };
-  Promise.all(imgs.map(waitImg)).then(go);
-  setTimeout(go, 4000); // Sicherheitsnetz, falls ein Bild hängt
+  // Erst drucken, wenn ALLE Bilder (Logos, Unterschrift, Belege) dekodiert sind.
+  // Der Druckbereich ist auf dem Bildschirm display:none – dort laden Bilder nicht.
+  // Deshalb über LOSGELÖSTE Image-Objekte vorladen; danach stehen sie im Cache und
+  // werden beim Druck sofort gerendert.
+  const srcs=[...document.querySelectorAll("#printArea img")].map(im=>im.getAttribute("src")).filter(Boolean);
+  const preload=src=>new Promise(res=>{ const im=new Image();
+      const done=()=>res(); im.onload=done; im.onerror=done; im.src=src;
+      if(im.complete) res(); });
+  let fired=false; const go=()=>{ if(fired) return; fired=true; window.print(); };
+  Promise.all(srcs.map(preload)).then(()=>setTimeout(go,60));
+  setTimeout(go, 8000); // Sicherheitsnetz
 }
 function printDSQV(e){
   const c=calcDSQV(e); const s=DB.settings; const st=s.stamm;
