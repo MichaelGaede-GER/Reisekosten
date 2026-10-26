@@ -185,7 +185,7 @@ body:not(.authed) header.app,body:not(.authed) main{display:none}
 <div id="authGate"><div class="authbox"><h1>🎾 Reisekosten</h1><p class="muted">Bitte anmelden</p></div></div>
 
 <header class="app">
-  <div class="logo"><span class="dot">🎾</span> Reisekosten <span style="opacity:.6;font-weight:500">· DSQV & ESF</span></div>
+  <div class="logo"><span class="dot">🎾</span> Reisekosten <span style="opacity:.6;font-weight:500">· DSQV & ESF</span> <span id="appVer" style="opacity:.75;font-weight:600;font-size:11px;border:1px solid rgba(255,255,255,.4);border-radius:10px;padding:1px 7px;margin-left:2px"></span></div>
   <nav class="tabs">
     <button data-tab="dashboard" class="active">Übersicht</button>
     <button data-tab="form" id="tabFormBtn" style="display:none">Bearbeiten</button>
@@ -280,6 +280,7 @@ if (typeof structuredClone !== "function") { window.structuredClone = function(o
    Speicherung: localStorage (Browser-Datenbank), voll offline
    ======================================================================= */
 const DB_KEY = "rka_db_v1";
+const APP_VERSION = "1.0.0 · 2026-10-26";   // <<< bei jeder Änderung hochzählen
 
 /* =======================================================================
    SUPABASE – Login & Cloud-Sync
@@ -348,7 +349,8 @@ function renderGate(){
   const el=document.getElementById("authGate"); if(!el) return;
   if(!sbConfigured()){
     el.innerHTML=`<div class="authbox"><h1>🎾 Reisekosten</h1><div class="err">Noch nicht eingerichtet</div>
-      <p class="muted" style="font-size:13px">Bitte oben in der Datei <b>SUPABASE_URL</b> und <b>SUPABASE_ANON_KEY</b> eintragen (Supabase → Project Settings → API), speichern und die Datei erneut öffnen. Das SQL für die Tabelle steht in der Anleitung.</p></div>`;
+      <p class="muted" style="font-size:13px">Bitte oben in der Datei <b>SUPABASE_URL</b> und <b>SUPABASE_ANON_KEY</b> eintragen (Supabase → Project Settings → API), speichern und die Datei erneut öffnen. Das SQL für die Tabelle steht in der Anleitung.</p>
+      <p class="muted" style="font-size:11px;margin:10px 0 0;text-align:center">Version ${APP_VERSION}</p></div>`;
     return;
   }
   el.innerHTML=`<div class="authbox">
@@ -361,6 +363,7 @@ function renderGate(){
       <button class="btn" onclick="gateRegister()">Registrieren</button>
     </div>
     <p class="muted" style="font-size:11.5px;margin:12px 0 0">Nur dein Konto sieht deine Daten. Auf einem neuen Gerät: Datei öffnen, einmal anmelden – alle Belege sind sofort da.</p>
+    <p class="muted" style="font-size:11px;margin:10px 0 0;text-align:center">Version ${APP_VERSION}</p>
   </div>`;
   const p=document.getElementById("authPass"); if(p) p.addEventListener("keydown",e=>{ if(e.key==="Enter") gateLogin(); });
 }
@@ -1433,6 +1436,7 @@ function renderSettings(){
       <button class="btn danger" onclick="resetAll()">Alles zurücksetzen</button>
     </div>
     <p class="muted" style="margin-bottom:0">Alle Daten liegen lokal in diesem Browser (Datenbank). Für Umzug/Sicherung nutze das JSON-Backup. Jede Sicherung erhält automatisch Datum und Uhrzeit im Dateinamen (z. B. reisekosten-backup-2026-09-14_15-30.json), sodass nichts überschrieben wird.</p>
+    <p class="muted" style="margin:10px 0 0;font-weight:600">App-Version: ${APP_VERSION}</p>
   </div>`;
   renderLocEditor();
   renderLandEditor();
@@ -1765,6 +1769,7 @@ function printAnsch(e){
    INIT
    ======================================================================= */
 bootAuth();
+(function(){ const v=document.getElementById("appVer"); if(v) v.textContent="v"+APP_VERSION.split(" ")[0]; })();
 if(!sbConfigured() || !AUTH) showGate();
 else startApp();
 </script>
