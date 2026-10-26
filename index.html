@@ -426,6 +426,25 @@ const DEFAULTS = {
             heimatort:"Alzenau", email:"michael.gaede@europeansquash.com" },
     saetze:{ kmSatz:0.30, anreise:14, volltag:28, abreise:14,
              fruehstueck:5.60, mittag:11.20, abend:11.20, esfCarSatz:0.32 },
+    auslandSaetze:[
+      ["Andorra",45,30],["Belgien",59,40],["Bulgarien",38,25],
+      ["China (Peking)",57,38],["China (Shanghai)",48,32],["China (Hongkong)",83,56],
+      ["Dänemark",75,50],["Estland",39,26],
+      ["Frankreich",53,36],["Frankreich (Paris)",58,39],
+      ["Griechenland",36,24],
+      ["Großbritannien",52,35],["Großbritannien (London)",66,44],
+      ["Irland",64,43],["Israel",59,40],
+      ["Italien",42,28],["Italien (Rom)",48,32],
+      ["Japan",33,22],["Japan (Tokio)",50,33],["Kanada",54,36],
+      ["Lettland",46,31],["Liechtenstein",57,38],["Litauen",48,32],["Luxemburg",63,42],
+      ["Malta",59,40],["Niederlande",58,39],["Norwegen",75,50],
+      ["Österreich",50,33],["Polen",34,23],["Polen (Warschau)",40,27],
+      ["Portugal",32,21],["Rumänien",38,25],
+      ["Schweden",66,44],["Schweiz",70,47],["Schweiz (Bern)",82,55],
+      ["Spanien",34,23],["Spanien (Madrid)",42,28],["Spanien (Kanarische Inseln)",36,24],["Spanien (Palma de Mallorca)",44,29],
+      ["USA",59,40],["USA (New York)",66,44],
+      ["Vereinigte Arabische Emirate",81,54],["Zypern",42,28]
+    ].map(l=>({land:l[0], voll:l[1], teil:l[2]})),
     dsqvHeader:{ verband:"Deutscher Squash Verband e.V.",
                  adresse:"DSQV, Amselweg 10, 46395 Bocholt   IBAN: DE25428600030248629400   BIC: BOVBDE3MXXX",
                  version:"Erstattungsformular (Version ab 1.10.2021)" },
@@ -455,6 +474,7 @@ function migrateDB(){
   DB.entries.forEach(e=>{
     if(!Array.isArray(e.belege)) e.belege=[];
     if(e.verband==="DSQV" && (!e.konto || typeof e.konto!=="object")) e.konto={};
+    if(e.verband==="DSQV" && e.land===undefined) e.land = (e.typ==="ausland"?"":"Deutschland");
     if(e.verband==="ANSCH" && !Array.isArray(e.items)) e.items=[];
     if(e.verband==="ESF"){
       if(e.train2){ if((!e.train1||!num(e.train1.orig)) && num(e.train2.orig)) e.train1=e.train2; delete e.train2; }
@@ -653,13 +673,19 @@ function setBelegDate(field,val){
   saveDB(); renderForm(); renderDashboard();
 }
 function setReise(field,val){ const e=E(); e[field]=val; autoVerpflegung(e); saveDB(); renderForm(); }
+function setLand(land){
+  const e=E(); e.land=land;
+  if(land==="Deutschland"){ e.volltagSatz=DB.settings.saetze.volltag; e.anreiseSatz=DB.settings.saetze.anreise; e.abreiseSatz=DB.settings.saetze.abreise; }
+  else { const r=(DB.settings.auslandSaetze||[]).find(x=>x.land===land); if(r){ e.volltagSatz=r.voll; e.anreiseSatz=r.teil; e.abreiseSatz=r.teil; } }
+  saveDB(); renderForm(); renderDashboard();
+}
 function createEntry(verband,typ){
   const today=todayISO();
   const e = { id:"e"+Date.now(), verband, belegNr:1, jahr:+today.slice(0,4), belegMonat:today.slice(0,7),
               datum:today, gesendet:false, erhalten:false, erhaltenAm:"", belege:[] };
   e.belegNr = nextBelegNr(bucketOf(e));
   if(verband==="DSQV"){
-    Object.assign(e,{ typ:typ||"inland",
+    Object.assign(e,{ typ:typ||"inland", land:(typ==="ausland"?"":"Deutschland"),
       zweck:"",ort:"",ortName:"",kennzeichen:DB.settings.stamm.kennzeichen,mitfahrer:"",
       abfahrtDatum:todayISO(),abfahrtZeit:"",ankunftDatum:todayISO(),ankunftZeit:"",
       bahn:0,flug:0,km:0,kmSatz:DB.settings.saetze.kmSatz,tank:0,sonstigesFahrt:0,
@@ -708,11 +734,12 @@ function delEntry(id){
 function calcDSQV(e){
   const kmBetrag = num(e.km)*num(e.kmSatz);
   const summe1 = num(e.bahn)+num(e.flug)+kmBetrag+num(e.tank)+num(e.sonstigesFahrt);
-  const s=DB.settings.saetze;
-  // meal deductions
-  const mealAn=(e.anF?num(s.fruehstueck):0)+(e.anM?num(s.mittag):0)+(e.anA?num(s.abend):0);
-  const mealVo=(e.voF?num(s.fruehstueck):0)+(e.voM?num(s.mittag):0)+(e.voA?num(s.abend):0);
-  const mealAb=(e.abF?num(s.fruehstueck):0)+(e.abM?num(s.mittag):0)+(e.abA?num(s.abend):0);
+  // Mahlzeiten-Kürzung: 20 % (Frühstück) bzw. 40 % (Mittag/Abend) vom vollen Tagessatz
+  const voll=num(e.volltagSatz)||28;
+  const fr=0.2*voll, mi=0.4*voll, ab=0.4*voll;
+  const mealAn=(e.anF?fr:0)+(e.anM?mi:0)+(e.anA?ab:0);
+  const mealVo=(e.voF?fr:0)+(e.voM?mi:0)+(e.voA?ab:0);
+  const mealAb=(e.abF?fr:0)+(e.abM?mi:0)+(e.abA?ab:0);
   const anB = e.anreiseAktiv ? Math.max(0, num(e.anreiseSatz)-mealAn) : 0;
   const voB = Math.max(0, num(e.volltage)*num(e.volltagSatz) - num(e.volltage)*mealVo);
   const abB = e.abreiseAktiv ? Math.max(0, num(e.abreiseSatz)-mealAb) : 0;
@@ -858,7 +885,14 @@ function formDSQV(e){
 
   <div class="card">
     <div class="sec">2) Pauschaler Verpflegungs-Mehraufwand</div>
-    <p class="muted" style="margin-top:0">Wird automatisch aus <b>Abfahrt</b> und <b>Ankunft</b> (Datum + Uhrzeit) berechnet: Anreise-/Abreisetag je ${EUR(s.anreise)}, volle Tage je ${EUR(s.volltag)}. Häkchen bei bereitgestellten Mahlzeiten (Abzug Frühstück ${EUR(s.fruehstueck)}, Mittag ${EUR(s.mittag)}, Abend ${EUR(s.abend)}).${e.typ==="ausland"?' <b>Ausland:</b> Sätze unten anpassen.':''}</p>
+    <p class="muted" style="margin-top:0">Wird automatisch aus <b>Abfahrt</b> und <b>Ankunft</b> (Datum + Uhrzeit) berechnet. Mahlzeiten-Abzug (Frühstück 20 %, Mittag/Abend je 40 % vom vollen Tagessatz) per Häkchen.</p>
+    ${e.typ==="ausland"
+      ? `<div class="field"><label>Land der Tagespauschalen <span class="hint">Auswahl setzt die amtlichen Sätze automatisch</span></label>
+           <select onchange="setLand(this.value)">
+             <option value="">– Land wählen –</option>
+             ${(DB.settings.auslandSaetze||[]).map(r=>`<option value="${esc(r.land)}" ${e.land===r.land?"selected":""}>${esc(r.land)} — ${EUR(r.voll)} / ${EUR(r.teil)}</option>`).join("")}
+           </select>${e.land?`<div class="hint" style="margin-top:3px">Gewählt: <b>${esc(e.land)}</b> (voll ${EUR(e.volltagSatz)}, An-/Abreise ${EUR(e.anreiseSatz)})</div>`:'<div class="hint" style="margin-top:3px;color:var(--amber)">Bitte Land wählen – sonst gelten die eingetragenen Sätze.</div>'}</div>`
+      : `<div class="field"><label>Land</label><input type="text" value="Deutschland (voll 28 € / An-/Abreise 14 €)" readonly style="background:#f3f6f4"></div>`}
     <div class="row" style="margin-bottom:6px">
       <div class="col field"><label>Satz Anreise €</label><input type="number" step="0.01" value="${e.anreiseSatz}" oninput="up('anreiseSatz',this.value)"></div>
       <div class="col field"><label>Satz volle Tage €</label><input type="number" step="0.01" value="${e.volltagSatz}" oninput="up('volltagSatz',this.value)"></div>
@@ -1349,6 +1383,15 @@ function renderSettings(){
   </div>
 
   <div class="card">
+    <h2>Auslands-Tagespauschalen (DSQV) <span class="sub">– voll (24 Std.) / An-/Abreise. Werden bei Ausland-Belegen per Länderauswahl gesetzt.</span></h2>
+    <div class="notice" style="margin-bottom:10px">Stand: BMF-Schreiben 05.12.2025, gültig ab 01.01.2026 (Auszug häufiger Länder). Bitte bei Bedarf prüfen/ergänzen – die vollständige amtliche Tabelle steht beim Bundesfinanzministerium.</div>
+    <div class="locrow" style="font-weight:700;color:var(--muted);font-size:12px">
+      <div>Land / Stadt</div><div style="text-align:center">voll €</div><div style="text-align:center">An-/Abreise €</div><div></div></div>
+    <div id="landEditor"></div>
+    <button class="btn sm" onclick="addLand()">＋ Land hinzufügen</button>
+  </div>
+
+  <div class="card">
     <h2>Begründungstexte (2. Seite DSQV)</h2>
     ${reasonEditor("Reisezweck","reisezweck")}
     ${reasonEditor("Hotelkosten","hotel")}
@@ -1384,7 +1427,22 @@ function renderSettings(){
     <p class="muted" style="margin-bottom:0">Alle Daten liegen lokal in diesem Browser (Datenbank). Für Umzug/Sicherung nutze das JSON-Backup. Jede Sicherung erhält automatisch Datum und Uhrzeit im Dateinamen (z. B. reisekosten-backup-2026-09-14_15-30.json), sodass nichts überschrieben wird.</p>
   </div>`;
   renderLocEditor();
+  renderLandEditor();
 }
+function renderLandEditor(){
+  const box=document.getElementById("landEditor"); if(!box) return;
+  const arr=DB.settings.auslandSaetze||[];
+  box.innerHTML=arr.map((l,i)=>`
+    <div class="locrow">
+      <input type="text" value="${esc(l.land)}" oninput="editLand(${i},'land',this.value)">
+      <input type="number" step="0.01" value="${l.voll}" oninput="editLand(${i},'voll',num(this.value))" style="text-align:center">
+      <input type="number" step="0.01" value="${l.teil}" oninput="editLand(${i},'teil',num(this.value))" style="text-align:center">
+      <button class="btn sm danger" onclick="rmLand(${i})">✕</button>
+    </div>`).join("");
+}
+function editLand(i,k,v){ DB.settings.auslandSaetze[i][k]=v; saveDB(); }
+function addLand(){ DB.settings.auslandSaetze.push({land:"",voll:0,teil:0}); saveDB(); renderLandEditor(); }
+function rmLand(i){ DB.settings.auslandSaetze.splice(i,1); saveDB(); renderLandEditor(); }
 function setS(group,key,val){ DB.settings[group][key]=val; saveDB(); }
 
 function imgSlot(title,key){
@@ -1498,7 +1556,7 @@ function printDSQV(e){
       </div>
       <div style="text-align:right"><div class="small">Beleg</div><div style="font-size:15px;font-weight:800">${belegRef(e)}</div></div>
     </div>
-    <div style="text-align:center;font-weight:800;font-size:14px;margin:3px 0 2px">${esc(s.dsqvHeader.version)}${e.typ==="ausland"?' \u2013 <span style="color:#b42318">Ausland</span>':""}</div>
+    <div style="text-align:center;font-weight:800;font-size:14px;margin:3px 0 2px">${esc(s.dsqvHeader.version)}${e.typ==="ausland"?' \u2013 <span style="color:#b42318">Ausland'+(e.land?": "+esc(e.land):"")+'</span>':""}</div>
     <div class="redline" style="text-align:center;border:1px solid #f0c9c2;padding:3px;border-radius:3px">Antrag bitte m\u00f6glichst innerhalb von 6 Wochen stellen und sp\u00e4testens vor dem 15.1. des Folgejahres / bitte als PDF senden</div>
     <table class="kv box" style="margin-bottom:4px">
       <tr><td class="lab">Name, Vorname</td><td>${nameWithPos(st)}</td></tr>
