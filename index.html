@@ -280,7 +280,7 @@ if (typeof structuredClone !== "function") { window.structuredClone = function(o
    Speicherung: localStorage (Browser-Datenbank), voll offline
    ======================================================================= */
 const DB_KEY = "rka_db_v1";
-const APP_VERSION = "1.0.0 · 2026-10-26";   // <<< bei jeder Änderung hochzählen
+const APP_VERSION = "1.1.0 · 2026-10-26";   // <<< bei jeder Änderung hochzählen
 
 /* =======================================================================
    SUPABASE – Login & Cloud-Sync
@@ -1191,16 +1191,18 @@ function belegeCard(e){
   const bs=e.belege||[];
   const list=bs.map(b=>`
     <div class="belegrow">
-      ${b.type==="image"?`<img class="belthumb" src="${b.data}" alt="">`:`<div class="belthumb pdf">PDF</div>`}
+      ${b.type==="image"?`<img class="belthumb" src="${b.data}" alt="">`
+        : (b.pages&&b.pages.length)?`<img class="belthumb" src="${b.pages[0]}" alt="">`
+        : `<div class="belthumb pdf">PDF</div>`}
       <div style="flex:1;min-width:0">
         <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(b.name)}</div>
-        <div class="muted" style="font-size:11.5px">${b.type==="image"?"Bild – wird in die PDF eingebunden":"PDF – wird als separate Anlage aufgeführt"} · ${fmtKB(b.size)}</div>
+        <div class="muted" style="font-size:11.5px">${b.type==="image"?"Bild – wird eingebunden":(b.pages&&b.pages.length)?("PDF ("+b.pages.length+" Seite"+(b.pages.length>1?"n":"")+") – wird eingebunden"):"PDF – wird als separate Anlage aufgeführt"} · ${fmtKB(b.size)}</div>
       </div>
       <button class="btn sm" onclick="openBeleg('${b.id}')">Ansehen</button>
       <button class="btn sm danger" onclick="removeBeleg('${b.id}')">✕</button>
     </div>`).join("");
   return `<div class="card">
-    <h2>Belege <span class="sub">– Fotos/Scans werden beim PDF-Erstellen automatisch als weitere Seiten angehängt</span></h2>
+    <h2>Belege <span class="sub">– Fotos/Scans und PDFs werden beim Erstellen automatisch als weitere Seiten ins PDF eingebunden</span></h2>
     <label class="btn" style="cursor:pointer">＋ Belege hochladen<input type="file" accept="image/*,application/pdf" multiple style="display:none" onchange="addBelege(this)"></label>
     <div id="belegeList" style="margin-top:10px">${list||'<p class="muted" style="margin:6px 0 0">Noch keine Belege hochgeladen. Fotos (JPG/PNG) oder PDF möglich.</p>'}</div>
   </div>`;
@@ -1220,6 +1222,31 @@ function compressImage(file,maxDim,quality){
     img.src=url;
   });
 }
+function loadScript(src){ return new Promise((res,rej)=>{ const s=document.createElement("script"); s.src=src; s.onload=res; s.onerror=()=>rej(new Error("load "+src)); document.head.appendChild(s); }); }
+async function ensurePdfJs(){
+  if(window.pdfjsLib) return window.pdfjsLib;
+  await loadScript("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js");
+  if(!window.pdfjsLib) throw new Error("pdf.js nicht geladen");
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  return window.pdfjsLib;
+}
+async function pdfToImages(dataURL,maxDim,quality){
+  const lib=await ensurePdfJs();
+  const bytes=Uint8Array.from(atob(dataURL.split(",")[1]), c=>c.charCodeAt(0));
+  const pdf=await lib.getDocument({data:bytes}).promise;
+  const out=[];
+  for(let p=1;p<=pdf.numPages;p++){
+    const page=await pdf.getPage(p);
+    let vp=page.getViewport({scale:1});
+    const scale=Math.min(maxDim/vp.width, maxDim/vp.height, 2.5)||1.5;
+    vp=page.getViewport({scale});
+    const cv=document.createElement("canvas"); cv.width=Math.round(vp.width); cv.height=Math.round(vp.height);
+    const ctx=cv.getContext("2d"); ctx.fillStyle="#fff"; ctx.fillRect(0,0,cv.width,cv.height);
+    await page.render({canvasContext:ctx, viewport:vp}).promise;
+    out.push(cv.toDataURL("image/jpeg",quality));
+  }
+  return out;
+}
 async function addBelege(inp){
   const files=[...inp.files]; if(!files.length) return;
   const e=E(); e.belege=e.belege||[];
@@ -1230,9 +1257,15 @@ async function addBelege(inp){
         const data=await compressImage(f,1600,0.72);
         b={ id:bid(), name:f.name, type:"image", data, size:Math.round(data.length*0.75) };
       } else if(f.type==="application/pdf" || /\.pdf$/i.test(f.name)){
-        if(f.size>4*1024*1024){ alert(`„${f.name}" ist größer als 4 MB und wurde übersprungen. Bitte eine kleinere PDF verwenden.`); continue; }
-        const data=await readDataURL(f);
-        b={ id:bid(), name:f.name, type:"pdf", data, size:f.size };
+        if(f.size>8*1024*1024){ alert(`„${f.name}" ist größer als 8 MB und wurde übersprungen. Bitte eine kleinere PDF verwenden.`); continue; }
+        const dataURL=await readDataURL(f);
+        let pages=null;
+        try{ pages=await pdfToImages(dataURL,1600,0.7); }catch(err){ console.warn("PDF-Umwandlung fehlgeschlagen:",err); }
+        if(pages && pages.length){
+          b={ id:bid(), name:f.name, type:"pdf", pages, size:pages.reduce((a,d)=>a+Math.round(d.length*0.75),0) };
+        } else {
+          b={ id:bid(), name:f.name, type:"pdf", data:dataURL, size:f.size };   // Fallback: nur auflisten
+        }
       } else { alert(`„${f.name}": Format wird nicht unterstützt (nur Bilder oder PDF).`); continue; }
       e.belege.push(b);
       if(!saveDB()){ e.belege.pop(); alert("Der lokale Speicher ist voll – dieser Beleg wurde nicht gespeichert. Bitte alte Belege entfernen oder ein Backup exportieren und Platz schaffen."); break; }
@@ -1243,21 +1276,39 @@ async function addBelege(inp){
 function bid(){ return "b"+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
 function removeBeleg(id){ const e=E(); if(!confirm("Beleg wirklich entfernen?")) return; e.belege=(e.belege||[]).filter(b=>b.id!==id); saveDB(); renderForm(); }
 async function openBeleg(id){
-  const e=E(); const b=(e.belege||[]).find(x=>x.id===id); if(!b||!b.data) return;
+  const e=E(); const b=(e.belege||[]).find(x=>x.id===id); if(!b) return;
   try{
-    const blob=await (await fetch(b.data)).blob();         // data:-URL -> Blob
-    const url=URL.createObjectURL(blob);                    // blob:-URL darf geöffnet werden
-    const win=window.open(url,"_blank");
-    if(!win){ const a=document.createElement("a"); a.href=url; a.download=b.name||"beleg"; document.body.appendChild(a); a.click(); a.remove(); }
+    // PDF, das in Seitenbilder umgewandelt wurde -> alle Seiten in einem Fenster zeigen
+    if(b.type==="pdf" && b.pages && b.pages.length){
+      const html="<!doctype html><meta charset='utf-8'><title>"+esc(b.name)+"</title>"+
+        "<body style='margin:0;background:#525659'>"+
+        b.pages.map(d=>`<img src="${d}" style="display:block;max-width:900px;width:100%;margin:10px auto;box-shadow:0 2px 10px rgba(0,0,0,.5)">`).join("")+
+        "</body>";
+      const url=URL.createObjectURL(new Blob([html],{type:"text/html"}));
+      if(!window.open(url,"_blank")){ const a=document.createElement("a"); a.href=url; a.download=(b.name||"beleg")+".html"; a.click(); }
+      setTimeout(()=>URL.revokeObjectURL(url),60000); return;
+    }
+    const src=b.data||(b.pages&&b.pages[0]); if(!src) return;
+    const blob=await (await fetch(src)).blob();             // data:-URL -> Blob
+    const url=URL.createObjectURL(blob);                     // blob:-URL darf geöffnet werden
+    if(!window.open(url,"_blank")){ const a=document.createElement("a"); a.href=url; a.download=b.name||"beleg"; document.body.appendChild(a); a.click(); a.remove(); }
     setTimeout(()=>URL.revokeObjectURL(url),60000);
   }catch(err){ console.error(err); alert("Beleg konnte nicht geöffnet werden."); }
 }
 function belegePrint(e){
   const bs=e.belege||[]; if(!bs.length) return "";
-  const imgs=bs.filter(b=>b.type==="image"), pdfs=bs.filter(b=>b.type==="pdf");
-  let html="";
-  imgs.forEach((b,i)=>{ html+=`<div class="pagebreak"></div><div class="belegsheet"><div class="belegcap">Beleg ${i+1}: ${esc(b.name)} · ${belegRef(e)}</div><img class="belegfull" src="${b.data}" alt=""></div>`; });
-  if(pdfs.length){ html+=`<div class="pagebreak"></div><div class="belegsheet"><div class="belegcap">Weitere Belege (PDF) · ${belegRef(e)}</div><ul style="font-size:11px;margin:6px 0 0 16px">${pdfs.map(b=>`<li>${esc(b.name)} – als separate PDF-Datei beigefügt</li>`).join("")}</ul></div>`; }
+  const ref=belegRef(e);
+  const page=(src,cap)=>`<div class="pagebreak"></div><div class="belegsheet"><div class="belegcap">${cap} · ${ref}</div><img class="belegfull" src="${src}" alt=""></div>`;
+  let html="", n=0;
+  bs.forEach(b=>{
+    if(b.type==="image"){ n++; html+=page(b.data, `Beleg ${n}: ${esc(b.name)}`); }
+    else if(b.type==="pdf" && b.pages && b.pages.length){
+      b.pages.forEach((d,pi)=>{ n++; html+=page(d, `Beleg ${n}: ${esc(b.name)}${b.pages.length>1?" (Seite "+(pi+1)+"/"+b.pages.length+")":""}`); });
+    }
+  });
+  // Fallback: PDFs ohne umgewandelte Seiten (falls Umwandlung fehlschlug) nur auflisten
+  const listed=bs.filter(b=>b.type==="pdf" && !(b.pages&&b.pages.length));
+  if(listed.length){ html+=`<div class="pagebreak"></div><div class="belegsheet"><div class="belegcap">Weitere Belege (PDF) · ${ref}</div><ul style="font-size:11px;margin:6px 0 0 16px">${listed.map(b=>`<li>${esc(b.name)} – als separate PDF-Datei beigefügt</li>`).join("")}</ul></div>`; }
   return html;
 }
 
