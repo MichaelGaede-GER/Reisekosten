@@ -193,7 +193,7 @@ body:not(.authed) header.app,body:not(.authed) main{display:none}
     <button data-tab="settings">Einstellungen</button>
   </nav>
   <div style="margin-left:auto;display:flex;align-items:center;gap:12px">
-    <span id="syncState" style="font-size:12px;font-weight:700;white-space:nowrap;color:#eafff4"></span>
+    <span id="syncState" onclick="retrySync()" title="Status der Cloud-Synchronisierung – klicken zum erneuten Verbinden" style="font-size:12px;font-weight:700;white-space:nowrap;color:#eafff4;cursor:pointer;user-select:none"></span>
     <button onclick="doLogout()" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.5);color:#fff;padding:6px 12px;border-radius:8px;font-size:12.5px;font-weight:600;cursor:pointer">Abmelden</button>
   </div>
 </header>
@@ -280,7 +280,7 @@ if (typeof structuredClone !== "function") { window.structuredClone = function(o
    Speicherung: localStorage (Browser-Datenbank), voll offline
    ======================================================================= */
 const DB_KEY = "rka_db_v1";
-const APP_VERSION = "1.1.0 · 2026-10-26";   // <<< bei jeder Änderung hochzählen
+const APP_VERSION = "1.1.1 · 2026-10-26";   // <<< bei jeder Änderung hochzählen
 
 /* =======================================================================
    SUPABASE – Login & Cloud-Sync
@@ -335,9 +335,27 @@ async function loadFromCloud(){
 }
 async function startApp(){
   document.body.classList.add("authed"); showApp(); setSync("sync");
-  try{ await loadFromCloud(); setSync("ok"); }
-  catch(e){ loadLocalOrDefaults(); setSync("off"); if(typeof toast==="function") toast("Offline – lokale Daten geladen"); }
+  let okLoad=false;
+  for(let i=0;i<3 && !okLoad;i++){
+    try{ await loadFromCloud(); okLoad=true; }
+    catch(e){ console.warn("Cloud-Load Versuch "+(i+1)+" fehlgeschlagen:",e); if(i<2) await new Promise(r=>setTimeout(r,700*(i+1))); }
+  }
+  if(okLoad) setSync("ok");
+  else { if(!DB||!DB.settings) loadLocalOrDefaults(); setSync("off");
+    if(typeof toast==="function") toast("Cloud nicht erreichbar – lokale Daten geladen. Oben rechts auf „offline“ klicken zum erneuten Verbinden."); }
   renderDashboard(); showTab("dashboard");
+}
+async function retrySync(){
+  if(!sbConfigured()||!AUTH) return;
+  setSync("sync");
+  try{
+    await ensureToken();
+    pushPending=true; await flushPush();      // lokalen Stand hochladen (lokal = aktuell)
+    const el=document.getElementById("syncState");
+    if(el && /gespeichert/.test(el.textContent)){ if(typeof toast==="function") toast("Verbunden & synchronisiert ✓"); }
+    else { setSync("off"); }
+  }catch(e){ console.warn("retrySync:",e); setSync("off");
+    if(typeof toast==="function") toast("Verbindung fehlgeschlagen. Falls das bleibt: abmelden und neu anmelden."); }
 }
 
 /* ---------- Auth-UI (Login-Overlay) ---------- */
